@@ -29,10 +29,11 @@ UEOffsets load_offsets(const std::string& path) {
         try { dst = parse_hex(val); } catch (...) {}
     };
 
-    get("GWorld", o.GWorld);
+    // Читаем только то, что осталось в структуре
     get("GNames", o.GNames);
     get("GObjects", o.GObjects);
     get("Engine_LocalPlayer", o.Engine_LocalPlayer);
+    
     get("UWorld_PersistentLevel", o.UWorld_PersistentLevel);
     get("UWorld_OwningGameInstance", o.UWorld_OwningGameInstance);
     get("ULevel_Actors", o.ULevel_Actors);
