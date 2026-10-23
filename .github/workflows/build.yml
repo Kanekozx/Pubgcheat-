@@ -70,7 +70,6 @@ jobs:
             static void registerHidlService(const char* serviceName, sp<IBinder> service);
         };
         }
-        // Исправляем макрос на вариативный (...)
         #define DECLARE_HYBRID_META_INTERFACE(INTERFACE, ...) \
             DECLARE_META_INTERFACE(INTERFACE)
         #define IMPLEMENT_HYBRID_META_INTERFACE(INTERFACE, ...) \
@@ -281,7 +280,14 @@ jobs:
         
         export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden -I./include -DANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT=0"
         
-        export LDFLAGS="-pie -pthread -Wl,--allow-shlib-undefined -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid -lhardware -lbase"
+        # Создаем пустые .so заглушки для системных библиотек
+        mkdir -p libs
+        for lib in gui binder ui utils cutils hardware base; do
+            $CXX -shared -o libs/lib${lib}.so -Wl,-soname,lib${lib}.so -x c /dev/null
+        done
+        
+        # Добавляем -L./libs и --unresolved-symbols=ignore-all
+        export LDFLAGS="-pie -pthread -L./libs -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid -lhardware -lbase -Wl,--unresolved-symbols=ignore-all"
         
         $CXX $CXXFLAGS -o pubg_cheat main.cpp module.cpp esp.cpp aimbot.cpp offsets.cpp overlay_egl.cpp menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
