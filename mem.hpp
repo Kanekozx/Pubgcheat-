@@ -1,24 +1,21 @@
 #pragma once
-#include "common.hpp"
-#include <sys/uio.h>
+#include <atomic>
+#include <vector>
+#include <string>
+#include <mutex>
 
-class Proc {
-public:
-    explicit Proc(pid_t p) : pid_(p) {}
-    pid_t pid() const { return pid_; }
+extern std::atomic<bool> g_esp_enabled;
+extern std::atomic<bool> g_aim_enabled;
+extern std::atomic<bool> g_aim_draw_fov;
+extern std::atomic<float> g_aim_fov;
+extern std::atomic<float> g_aim_smooth;
 
-    bool read(ptr addr, void* out, size_t n) const {
-        iovec l{out, n}, r{reinterpret_cast<void*>(addr), n};
-        return process_vm_readv(pid_, &l, 1, &r, 1, 0) == (ssize_t)n;
-    }
-    bool write(ptr addr, const void* in, size_t n) const {
-        iovec l{const_cast<void*>(in), n}, r{reinterpret_cast<void*>(addr), n};
-        return process_vm_writev(pid_, &l, 1, &r, 1, 0) == (ssize_t)n;
-    }
-
-    template<class T> T rd(ptr a) const { T v{}; read(a, &v, sizeof(T)); return v; }
-    template<class T> void wr(ptr a, T v) const { write(a, &v, sizeof(T)); }
-
-private:
-    pid_t pid_;
+struct BoxData {
+    float x, y, w, h;
+    std::string text;
 };
+
+extern std::vector<BoxData> g_draw_list;
+extern std::mutex g_draw_mutex;
+
+void start_web_menu();
