@@ -19,10 +19,11 @@ jobs:
 
     - name: Download Official AOSP Headers
       run: |
-        # Используем ветку r48, она точно есть во всех репозиториях
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/frameworks/native temp_native
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/core temp_core
-        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
+        
+        # Для logging убираем тег, качаем основную ветку, там точно есть нужный файл
+        git clone --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
         
         mkdir -p include
         cp -r temp_native/libs/gui/include/* ./include/
@@ -30,8 +31,8 @@ jobs:
         cp -r temp_native/libs/binder/include/* ./include/
         cp -r temp_core/libutils/include/* ./include/
         cp -r temp_core/libcutils/include/* ./include/
-        cp -r temp_logging/liblog/include/* ./include/  # <--- Возвращаем log/log.h
-        
+        cp -r temp_logging/liblog/include/* ./include/
+
     - name: Build
       run: |
         export NDK=$NDK_HOME
