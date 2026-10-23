@@ -28,7 +28,6 @@ jobs:
         $CXX $CXXFLAGS -o pubg_cheat src/main.cpp src/module.cpp src/esp.cpp src/aimbot.cpp src/offsets.cpp src/overlay_null.cpp src/menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
 
-    # ИСПОЛЬЗУЕМ ОФИЦИАЛЬНЫЙ ЭКШЕН ДЛЯ GRADLE
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
@@ -45,6 +44,8 @@ jobs:
             }
             dependencies {
                 classpath 'com.android.tools.build:gradle:8.1.0'
+                // Добавляем плагин Kotlin в classpath
+                classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0'
             }
         }
         allprojects {
@@ -61,7 +62,9 @@ jobs:
         cp android_app/OverlayService.kt app/src/main/java/com/cheat/overlay/OverlayService.kt
         
         cat << 'EOF' > app/build.gradle
+        // Применяем плагин Kotlin
         apply plugin: 'com.android.application'
+        apply plugin: 'kotlin-android'
 
         android {
             namespace 'com.cheat.overlay'
@@ -72,11 +75,15 @@ jobs:
                 targetSdk 33
             }
         }
+
+        // Добавляем стандартную библиотеку Kotlin
+        dependencies {
+            implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.0"
+        }
         EOF
 
     - name: Build APK
       run: |
-        # Теперь используем просто gradle, так как версия уже правильная
         gradle assembleDebug
 
     - name: Upload Everything
