@@ -38,8 +38,9 @@ jobs:
         cp -r temp_core/libsystem/include/* ./include/
         cp -r temp_logging/liblog/include/* ./include/
         
-        # Добавляем AIDL заголовки для оборудования
-        cp -r temp_hardware/graphics/common/aidl/* ./include/
+        # ИСПРАВЛЕНИЕ: Создаем папку aidl и копируем туда интерфейсы
+        mkdir -p ./include/aidl
+        cp -r temp_hardware/graphics/common/aidl/* ./include/aidl/
 
     - name: Build
       run: |
