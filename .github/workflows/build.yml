@@ -36,7 +36,7 @@ jobs:
         cp -r temp_core/libsystem/include/* ./include/
         cp -r temp_logging/liblog/include/* ./include/
 
-        # ДОБАВЛЯЕМ ВСЕ НЕДОСТАЮЩИЕ ЗАГОЛОВКИ AIDL
+        # ДОБАВЛЯЕМ ВСЕ ОСТАВШИЕСЯ ЗАГОЛОВКИ AIDL
         mkdir -p include/aidl/android/hardware/graphics/common
         
         cat << 'EOF' > include/aidl/android/hardware/graphics/common/BlendMode.h
@@ -124,6 +124,30 @@ jobs:
         #include <cstdint>
         namespace aidl::android::hardware::graphics::common {
         enum class Interlaced : int32_t { NONE = 0, TOP_BOTTOM = 1, RIGHT_LEFT = 2 };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Smpte2086.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        struct Smpte2086 { float redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY, maxLuminance, minLuminance; };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Smpte431.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        struct Smpte431 { uint16_t redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY; };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Smpte432.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        struct Smpte432 { uint16_t redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY; };
         }
         EOF
 
