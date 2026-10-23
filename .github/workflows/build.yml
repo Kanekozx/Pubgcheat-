@@ -1,4 +1,4 @@
-name: Build Android Cheat
+name: Build Cheat and App
 
 on:
   push:
@@ -17,283 +17,43 @@ jobs:
         unzip -q android-ndk-r26d-linux.zip
         echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26d" >> $GITHUB_ENV
 
-    - name: Download Official AOSP Headers
-      run: |
-        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/frameworks/native temp_native
-        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/core temp_core
-        git clone --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
-        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/hardware/libhardware temp_libhardware
-        git clone --depth 1 https://android.googlesource.com/platform/system/libbase temp_libbase
-        
-        rm -rf include
-        mkdir -p include
-        
-        cp -r temp_native/include/input ./include/
-        cp -r temp_native/libs/gui/include/* ./include/
-        cp -r temp_native/libs/ui/include/* ./include/
-        cp -r temp_native/libs/binder/include/* ./include/
-        cp -r temp_native/libs/nativewindow/include/* ./include/
-        cp -r temp_native/libs/nativebase/include/* ./include/
-        cp -r temp_native/libs/arect/include/* ./include/
-        cp -r temp_native/libs/math/include/* ./include/
-        
-        cp -r temp_core/libutils/include/* ./include/
-        cp -r temp_core/libcutils/include/* ./include/
-        cp -r temp_core/libsystem/include/* ./include/
-        cp -r temp_logging/liblog/include/* ./include/
-        cp -r temp_libhardware/include/hardware ./include/
-        cp -r temp_libbase/include/* ./include/
-
-        # ПАТЧ 1: Добавляем недостающий include в LayerState.h
-        sed -i '1i #include <android/native_window.h>' include/gui/LayerState.h
-
-        # ПАТЧ 2: Делаем enum DisconnectMode публичным
-        sed -i 's/enum class DisconnectMode/public: enum class DisconnectMode/' include/gui/IGraphicBufferProducer.h
-
-        # ПАТЧ 3: Ошибка аллокатора (C++17)
-        sed -i '/^class InlineStdAllocator {/a\public:\n    template <typename U> struct rebind { typedef InlineStdAllocator<U, SIZE> other; };' include/ui/FatVector.h
-
-        # ВНЕДРЯЕМ ExtendableType ПРЯМО В GraphicTypes.h
-        echo 'namespace aidl::android::hardware::graphics::common { struct ExtendableType { uint64_t name; int32_t value; }; }' | cat - include/ui/GraphicTypes.h > temp && mv temp include/ui/GraphicTypes.h
-
-        # --- ЗАГЛУШКИ ДЛЯ HIDL ---
-        mkdir -p include/hidl
-        cat << 'EOF' > include/hidl/HybridInterface.h
-        #pragma once
-        #include <cstdint>
-        #include <binder/IBinder.h>
-        #include <binder/IInterface.h>
-        namespace android {
-        class HybridInterface {
-        public:
-            static sp<IBinder> getHidlService(const char* serviceName, const char* interfaceName);
-            static void registerHidlService(const char* serviceName, sp<IBinder> service);
-        };
-        }
-        #define DECLARE_HYBRID_META_INTERFACE(INTERFACE, ...) \
-            DECLARE_META_INTERFACE(INTERFACE)
-        #define IMPLEMENT_HYBRID_META_INTERFACE(INTERFACE, ...) \
-            IMPLEMENT_META_INTERFACE(INTERFACE, #INTERFACE)
-        EOF
-
-        mkdir -p include/android/hardware/graphics/bufferqueue/1.0
-        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/1.0/IGraphicBufferProducer.h
-        #pragma once
-        #include <cstdint>
-        #include <binder/IBinder.h>
-        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V1_0 {
-        struct IGraphicBufferProducer : public virtual android::RefBase {};
-        } } } } }
-        EOF
-
-        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/1.0/IProducerListener.h
-        #pragma once
-        #include <cstdint>
-        #include <binder/IBinder.h>
-        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V1_0 {
-        struct IProducerListener : public virtual android::RefBase {};
-        } } } } }
-        EOF
-
-        mkdir -p include/android/hardware/graphics/bufferqueue/2.0
-        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/2.0/IGraphicBufferProducer.h
-        #pragma once
-        #include <cstdint>
-        #include <binder/IBinder.h>
-        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V2_0 {
-        struct IGraphicBufferProducer : public virtual android::RefBase {};
-        } } } } }
-        EOF
-
-        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/2.0/IProducerListener.h
-        #pragma once
-        #include <cstdint>
-        #include <binder/IBinder.h>
-        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V2_0 {
-        struct IProducerListener : public virtual android::RefBase {};
-        } } } } }
-        EOF
-
-        # --- СОЗДАЕМ AIDL ЗАГОЛОВКИ ---
-        mkdir -p include/aidl/android/hardware/graphics/common
-        
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/BlendMode.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class BlendMode : int32_t { INVALID = 0, NONE = 1, PREMULTIPLIED = 2, COVERAGE = 3 };
-        }
-        EOF
-        
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/ColorSpace.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class ColorSpace : int32_t { UNKNOWN = 0, SRGB = 1, DISPLAY_P3 = 2, BT2020 = 3, BT2100_PQ = 4, BT2100_HLG = 5 };
-        }
-        EOF
-        
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Dataspace.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class Dataspace : int32_t { UNKNOWN = 0, ARBITRARY = 1, SRGB = 2, V0_SRGB = 3 };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/ChromaSiting.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class ChromaSiting : int32_t { NONE = 0, UNKNOWN = 1, SITED_INTERSECTS = 2, SITED_HORIZONTAL = 3, SITED_VERTICAL = 4 };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/PixelFormat.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class PixelFormat : int32_t { UNSPECIFIED = 0, RGBA_8888 = 1, RGBX_8888 = 2, RGB_888 = 3, RGB_565 = 4, BGRA_8888 = 5 };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/PlaneLayout.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        struct PlaneLayout { int32_t offset; int32_t stride; int32_t width; int32_t height; };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Rect.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        struct Rect { int32_t left; int32_t top; int32_t right; int32_t bottom; };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Compression.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class Compression : int32_t { UNCOMPRESSED = 0, DRM_GRALLOC = 1, DRM_FRAMEBUFFER = 2, HEIF = 3 };
-        }
-        EOF
-        
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Cta861_3.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class Cta861_3 : int32_t { UNKNOWN = 0, SMPTE_2084 = 1, SMPTE_428_1 = 2 };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Hdr.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class Hdr : int32_t { UNKNOWN = 0, DOLBY_VISION = 1, HDR10 = 2, HLG = 3, HDR10_PLUS = 4 };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Interlaced.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        enum class Interlaced : int32_t { NONE = 0, TOP_BOTTOM = 1, RIGHT_LEFT = 2 };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Smpte2086.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        struct Smpte2086 { float redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY, maxLuminance, minLuminance; };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Smpte431.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        struct Smpte431 { uint16_t redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY; };
-        }
-        EOF
-
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Smpte432.h
-        #pragma once
-        #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        struct Smpte432 { uint16_t redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY; };
-        }
-        EOF
-
-        # --- СОЗДАЕМ HIDL ЗАГОЛОВКИ ---
-        mkdir -p include/android/hardware/graphics/common/1.0
-        cat << 'EOF' > include/android/hardware/graphics/common/1.0/types.h
-        #pragma once
-        #include <cstdint>
-        namespace android::hardware::graphics::common::V1_0 {
-            enum class Dataspace : int32_t { UNKNOWN = 0, ARBITRARY = 1, SRGB = 2, V0_SRGB = 3 };
-            enum class Hdr : int32_t { UNKNOWN = 0, DOLBY_VISION = 1, HDR10 = 2, HLG = 3, HDR10_PLUS = 4 };
-            enum class ColorMode : int32_t { DEFAULT = 0, SRGB = 1, DISPLAY_P3 = 2 };
-            enum class PixelFormat : int32_t { UNSPECIFIED = 0, RGBA_8888 = 1 };
-        }
-        EOF
-
-        mkdir -p include/android/hardware/graphics/common/1.1
-        cat << 'EOF' > include/android/hardware/graphics/common/1.1/types.h
-        #pragma once
-        #include <android/hardware/graphics/common/1.0/types.h>
-        namespace android::hardware::graphics::common::V1_1 {
-            using namespace android::hardware::graphics::common::V1_0;
-            enum class ColorMode : int32_t { DEFAULT = 0, SRGB = 1, DISPLAY_P3 = 2, SRGB_LINEAR = 3 };
-            enum class RenderIntent : int32_t { UNSPECIFIED = 0, COLOR = 1, ENHANCE = 2, TONE_MAP = 3 };
-        }
-        EOF
-
-        mkdir -p include/android/hardware/graphics/common/1.2
-        cat << 'EOF' > include/android/hardware/graphics/common/1.2/types.h
-        #pragma once
-        #include <android/hardware/graphics/common/1.1/types.h>
-        namespace android::hardware::graphics::common::V1_2 {
-            using namespace android::hardware::graphics::common::V1_1;
-            struct BufferUsage { uint64_t producerUsage; uint64_t consumerUsage; };
-        }
-        EOF
-
-        mkdir -p include/android/hardware/graphics/common/1.3
-        cat << 'EOF' > include/android/hardware/graphics/common/1.3/types.h
-        #pragma once
-        #include <android/hardware/graphics/common/1.2/types.h>
-        namespace android::hardware::graphics::common::V1_3 {
-            using namespace android::hardware::graphics::common::V1_2;
-        }
-        EOF
-
-    - name: Build
+    - name: Build C++ Core
       run: |
         export NDK=$NDK_HOME
         export PATH=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
         export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++
+        export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden"
+        export LDFLAGS="-pie -pthread -llog -ldl"
         
-        export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden -I./include -DANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT=0"
-        
-        # Создаем пустые .so заглушки для системных библиотек
-        mkdir -p libs
-        for lib in gui binder ui utils cutils hardware base; do
-            $CXX -shared -o libs/lib${lib}.so -Wl,-soname,lib${lib}.so -x c /dev/null
-        done
-        
-        # Добавляем -L./libs и --unresolved-symbols=ignore-all
-        export LDFLAGS="-pie -pthread -L./libs -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid -lhardware -lbase -Wl,--unresolved-symbols=ignore-all"
-        
-        $CXX $CXXFLAGS -o pubg_cheat main.cpp module.cpp esp.cpp aimbot.cpp offsets.cpp overlay_egl.cpp menu.cpp $LDFLAGS
+        # ВАЖНО: используем overlay_null.cpp вместо overlay_egl.cpp
+        $CXX $CXXFLAGS -o pubg_cheat main.cpp module.cpp esp.cpp aimbot.cpp offsets.cpp overlay_null.cpp menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
 
-    - name: Upload Binary
+    - name: Setup Gradle
+      run: |
+        echo "include ':app'" > settings.gradle
+        echo "buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.1.0' } }" > build.gradle
+        echo "allprojects { repositories { google(); mavenCentral() } }" >> build.gradle
+
+    - name: Setup App Module
+      run: |
+        mkdir -p app/src/main/java/com/cheat/overlay
+        cp android_app/AndroidManifest.xml app/src/main/AndroidManifest.xml
+        cp android_app/MainActivity.kt app/src/main/java/com/cheat/overlay/MainActivity.kt
+        cp android_app/OverlayService.kt app/src/main/java/com/cheat/overlay/OverlayService.kt
+        
+        echo "apply plugin: 'com.android.application'" > app/build.gradle
+        echo "android { namespace 'com.cheat.overlay'; compileSdk 34; defaultConfig { applicationId 'com.cheat.overlay'; minSdk 26; targetSdk 34 } }" >> app/build.gradle
+
+    - name: Build APK
+      run: |
+        gradle wrapper --gradle-version 8.1.1
+        ./gradlew assembleDebug
+
+    - name: Upload Everything
       uses: actions/upload-artifact@v4
       with:
-        name: pubg_cheat
-        path: pubg_cheat
+        name: CheatPackage
+        path: |
+          pubg_cheat
+          app/build/outputs/apk/debug/app-debug.apk
