@@ -17,13 +17,12 @@ jobs:
         unzip -q android-ndk-r26d-linux.zip
         echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26d" >> $GITHUB_ENV
 
-    - name: Clone AOSP Headers
+    - name: Download AOSP Headers
       run: |
-        # Используем проверенный форк, который точно работает
-        git clone --depth 1 https://github.com/springmusk026/Android-Overlay.git temp_overlay
-        cp -r temp_overlay/app/src/main/cpp/include ./include
+        git clone --depth 1 https://github.com/SsageParuders/Android_Native_Surface.git temp_overlay
+        cp -r temp_overlay/include ./include
         mkdir -p libs/arm64-v8a
-        cp temp_overlay/app/src/main/jniLibs/arm64-v8a/*.so ./libs/arm64-v8a/
+        cp temp_overlay/outputs/arm64-v8a/*.so ./libs/arm64-v8a/
 
     - name: Build
       run: |
