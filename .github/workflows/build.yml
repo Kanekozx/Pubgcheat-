@@ -33,8 +33,9 @@ jobs:
         cp -r temp_native/libs/nativebase/include/* ./include/
         cp -r temp_native/libs/arect/include/* ./include/
         
-        # ДОБАВЛЯЕМ МАТЕМАТИКУ
+        # ДОБАВЛЯЕМ МАТЕМАТИКУ И ВВОД
         cp -r temp_native/libs/math/include/* ./include/
+        cp -r temp_native/libs/input/include/* ./include/
         
         cp -r temp_core/libutils/include/* ./include/
         cp -r temp_core/libcutils/include/* ./include/
@@ -62,9 +63,9 @@ jobs:
             static void registerHidlService(const char* serviceName, sp<IBinder> service);
         };
         }
-        // Отключаем макросы, чтобы компилятор не искал сгенерированные HIDL классы
-        #define DECLARE_HYBRID_META_INTERFACE(INTERFACE, HIDL_INTERFACE)
-        #define IMPLEMENT_HYBRID_META_INTERFACE(INTERFACE, HIDL_INTERFACE)
+        // Исправляем макрос: принимает сколько угодно аргументов
+        #define DECLARE_HYBRID_META_INTERFACE(...)
+        #define IMPLEMENT_HYBRID_META_INTERFACE(...)
         EOF
 
         mkdir -p include/android/hardware/graphics/bufferqueue/1.0
@@ -110,7 +111,7 @@ jobs:
         #pragma once
         #include <cstdint>
         namespace aidl::android::hardware::graphics::common {
-        enum class Dataspace : int32_t { UNKNOWN = 0, ARBITRARY = 1, SRGB = 2 };
+        enum class Dataspace : int32_t { UNKNOWN = 0, ARBITRARY = 1, SRGB = 2, V0_SRGB = 3 };
         }
         EOF
 
@@ -208,7 +209,7 @@ jobs:
         #pragma once
         #include <cstdint>
         namespace android::hardware::graphics::common::V1_0 {
-            enum class Dataspace : int32_t { UNKNOWN = 0, ARBITRARY = 1, SRGB = 2 };
+            enum class Dataspace : int32_t { UNKNOWN = 0, ARBITRARY = 1, SRGB = 2, V0_SRGB = 3 };
             enum class Hdr : int32_t { UNKNOWN = 0, DOLBY_VISION = 1, HDR10 = 2, HLG = 3, HDR10_PLUS = 4 };
             enum class ColorMode : int32_t { DEFAULT = 0, SRGB = 1, DISPLAY_P3 = 2 };
             enum class PixelFormat : int32_t { UNSPECIFIED = 0, RGBA_8888 = 1 };
