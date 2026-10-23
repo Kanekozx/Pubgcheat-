@@ -44,7 +44,6 @@ jobs:
             }
             dependencies {
                 classpath 'com.android.tools.build:gradle:8.1.0'
-                // Добавляем плагин Kotlin в classpath
                 classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0'
             }
         }
@@ -62,7 +61,6 @@ jobs:
         cp android_app/OverlayService.kt app/src/main/java/com/cheat/overlay/OverlayService.kt
         
         cat << 'EOF' > app/build.gradle
-        // Применяем плагин Kotlin
         apply plugin: 'com.android.application'
         apply plugin: 'kotlin-android'
 
@@ -74,9 +72,17 @@ jobs:
                 minSdk 26
                 targetSdk 33
             }
+            
+            // ВЫРАВНИВАЕМ ВЕРСИИ JAVA И KOTLIN
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+            kotlinOptions {
+                jvmTarget = '17'
+            }
         }
 
-        // Добавляем стандартную библиотеку Kotlin
         dependencies {
             implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.0"
         }
