@@ -36,7 +36,7 @@ jobs:
         cp -r temp_core/libsystem/include/* ./include/
         cp -r temp_logging/liblog/include/* ./include/
 
-        # ВРУЧНУЮ СОЗДАЕМ ВСЕ 7 НЕДОСТАЮЩИХ ЗАГОЛОВКОВ AIDL
+        # ДОБАВЛЯЕМ ВСЕ НЕДОСТАЮЩИЕ ЗАГОЛОВКИ AIDL
         mkdir -p include/aidl/android/hardware/graphics/common
         
         cat << 'EOF' > include/aidl/android/hardware/graphics/common/BlendMode.h
@@ -75,7 +75,7 @@ jobs:
         #pragma once
         #include <cstdint>
         namespace aidl::android::hardware::graphics::common {
-        enum class PixelFormat : int32_t { UNSPECIFIED = 0, RGBA_8888 = 1, RGBX_8888 = 2, RGB_888 = 3, RGB_565 = 4, BGRA_8888 = 5, YCBCR_422_SP = 16, YCRCB_420_SP = 17, BLOB = 33 };
+        enum class PixelFormat : int32_t { UNSPECIFIED = 0, RGBA_8888 = 1, RGBX_8888 = 2, RGB_888 = 3, RGB_565 = 4, BGRA_8888 = 5 };
         }
         EOF
 
@@ -92,6 +92,14 @@ jobs:
         #include <cstdint>
         namespace aidl::android::hardware::graphics::common {
         struct Rect { int32_t left; int32_t top; int32_t right; int32_t bottom; };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Compression.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        enum class Compression : int32_t { UNCOMPRESSED = 0, DRM_GRALLOC = 1, DRM_FRAMEBUFFER = 2, HEIF = 3 };
         }
         EOF
 
