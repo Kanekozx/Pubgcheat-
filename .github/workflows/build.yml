@@ -19,7 +19,6 @@ jobs:
 
     - name: Download Official AOSP Headers
       run: |
-        # Скачиваем официальные исходники от Google
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/frameworks/native temp_native
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/core temp_core
         git clone --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
@@ -37,16 +36,14 @@ jobs:
         cp -r temp_core/libsystem/include/* ./include/
         cp -r temp_logging/liblog/include/* ./include/
 
-        # ВРУЧНУЮ СОЗДАЕМ НЕДОСТАЮЩИЕ ЗАГОЛОВКИ AIDL
+        # ВРУЧНУЮ СОЗДАЕМ ВСЕ 7 НЕДОСТАЮЩИХ ЗАГОЛОВКОВ AIDL
         mkdir -p include/aidl/android/hardware/graphics/common
         
         cat << 'EOF' > include/aidl/android/hardware/graphics/common/BlendMode.h
         #pragma once
         #include <cstdint>
         namespace aidl::android::hardware::graphics::common {
-        enum class BlendMode : int32_t {
-            INVALID = 0, NONE = 1, PREMULTIPLIED = 2, COVERAGE = 3,
-        };
+        enum class BlendMode : int32_t { INVALID = 0, NONE = 1, PREMULTIPLIED = 2, COVERAGE = 3 };
         }
         EOF
         
@@ -54,9 +51,7 @@ jobs:
         #pragma once
         #include <cstdint>
         namespace aidl::android::hardware::graphics::common {
-        enum class ColorSpace : int32_t {
-            UNKNOWN = 0, SRGB = 1, DISPLAY_P3 = 2, BT2020 = 3, BT2100_PQ = 4, BT2100_HLG = 5,
-        };
+        enum class ColorSpace : int32_t { UNKNOWN = 0, SRGB = 1, DISPLAY_P3 = 2, BT2020 = 3, BT2100_PQ = 4, BT2100_HLG = 5 };
         }
         EOF
         
@@ -64,9 +59,39 @@ jobs:
         #pragma once
         #include <cstdint>
         namespace aidl::android::hardware::graphics::common {
-        enum class Dataspace : int32_t {
-            UNKNOWN = 0, ARBITRARY = 1, SRGB = 2,
-        };
+        enum class Dataspace : int32_t { UNKNOWN = 0, ARBITRARY = 1, SRGB = 2 };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/ChromaSiting.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        enum class ChromaSiting : int32_t { NONE = 0, UNKNOWN = 1, SITED_INTERSECTS = 2, SITED_HORIZONTAL = 3, SITED_VERTICAL = 4 };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/PixelFormat.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        enum class PixelFormat : int32_t { UNSPECIFIED = 0, RGBA_8888 = 1, RGBX_8888 = 2, RGB_888 = 3, RGB_565 = 4, BGRA_8888 = 5, YCBCR_422_SP = 16, YCRCB_420_SP = 17, BLOB = 33 };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/PlaneLayout.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        struct PlaneLayout { int32_t offset; int32_t stride; int32_t width; int32_t height; };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Rect.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        struct Rect { int32_t left; int32_t top; int32_t right; int32_t bottom; };
         }
         EOF
 
