@@ -1,4 +1,4 @@
- name: Build Android Cheat
+name: Build Android Cheat
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
 
     - name: Download AOSP Headers
       run: |
-        # Берем репозиторий, где уже сгенерированы все нужные AIDL заголовки (например, BlendMode.h)
+        # Берем репозиторий, где уже сгенерированы все нужные AIDL заголовки
         git clone --depth 1 https://github.com/springmusk026/Android-Overlay.git temp_overlay
         
         mkdir -p include
