@@ -11,6 +11,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <string>
+#include <iostream>
 
 static volatile sig_atomic_t g_stop = 0;
 static void on_sig(int) { g_stop = 1; }
@@ -29,21 +30,32 @@ int main(int argc, char** argv) {
 
     Proc mem(pid);
     auto ue4 = find_module(pid, "libUE4.so");
-    if (!ue4) return 2;
+    if (!ue4) {
+        std::cout << "[-] libUE4.so not found" << std::endl;
+        return 2;
+    }
+    std::cout << "[+] libUE4.so base: " << std::hex << ue4->base << std::dec << std::endl;
     
     UEOffsets off = load_offsets(offsets_path);
     ptr gworld_ptr = ue4->base + off.GWorld;
     ptr gengine_ptr = ue4->base + off.Engine_LocalPlayer;
 
+    std::cout << "[*] Starting web menu..." << std::endl;
     start_web_menu();
 
     EspConfig esp; 
     AimConfig aim;
     aim.fov_deg = 15.0f;
 
+    int tick = 0;
     while (!g_stop) {
         ptr gworld = mem.rd<ptr>(gworld_ptr);
         ptr gengine = mem.rd<ptr>(gengine_ptr);
+
+        if (tick++ % 60 == 0) {
+            std::cout << "[*] GWorld: " << std::hex << gworld << ", GEngine: " << gengine << std::dec << std::endl;
+        }
+
         if (!gworld || !gengine) { usleep(500'000); continue; }
 
         ptr local_players = mem.rd<ptr>(gengine + 0x38);
