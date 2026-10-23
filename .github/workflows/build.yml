@@ -19,10 +19,10 @@ jobs:
 
     - name: Download AOSP Headers
       run: |
+        # Скачиваем только заголовки, .so файлы нам не нужны (они есть в системе)
         git clone --depth 1 https://github.com/SsageParuders/Android_Native_Surface.git temp_overlay
-        cp -r temp_overlay/include ./include
-        mkdir -p libs/arm64-v8a
-        cp temp_overlay/outputs/arm64-v8a/*.so ./libs/arm64-v8a/
+        mkdir -p include
+        cp -r temp_overlay/include/* ./include/
 
     - name: Build
       run: |
@@ -30,7 +30,9 @@ jobs:
         export PATH=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
         export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++
         export CXXFLAGS="-std=c++20 -O2 -fPIE -fvisibility=hidden -I./include"
-        export LDFLAGS="-pie -pthread -L./libs/arm64-v8a -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils"
+        
+        # Линкуемся к системным библиотекам напрямую
+        export LDFLAGS="-pie -pthread -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils"
         
         $CXX $CXXFLAGS -o pubg_cheat main.cpp module.cpp esp.cpp aimbot.cpp offsets.cpp overlay_egl.cpp menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
