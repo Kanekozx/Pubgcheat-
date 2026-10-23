@@ -21,16 +21,22 @@ jobs:
       run: |
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/frameworks/native temp_native
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/core temp_core
-        
-        # Для logging убираем тег, качаем основную ветку, там точно есть нужный файл
         git clone --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
         
         mkdir -p include
+        
+        # Заголовки графики и интерфейсов
         cp -r temp_native/libs/gui/include/* ./include/
         cp -r temp_native/libs/ui/include/* ./include/
         cp -r temp_native/libs/binder/include/* ./include/
+        cp -r temp_native/libs/nativewindow/include/* ./include/
+        cp -r temp_native/libs/nativebase/include/* ./include/
+        cp -r temp_native/libs/arect/include/* ./include/
+        
+        # Системные заголовки
         cp -r temp_core/libutils/include/* ./include/
         cp -r temp_core/libcutils/include/* ./include/
+        cp -r temp_core/libsystem/include/* ./include/    # <--- Добавили system/graphics.h
         cp -r temp_logging/liblog/include/* ./include/
 
     - name: Build
@@ -49,4 +55,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: pubg_cheat
-        path: pubg_cheat
+        path: pubg_cheat 
