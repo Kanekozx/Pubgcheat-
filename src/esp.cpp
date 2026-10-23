@@ -63,7 +63,7 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
     if (!actors_ptr || count > 100000) return;
 
     ptr my_pawn = mem.rd<ptr>(local_pc + off.APlayerController_AcknowledgedPawn);
-    float sw = 1080.0f, sh = 2400.0f;
+    float sw = 3048.0f, sh = 2032.0f;
 
     for (u32 i = 0; i < count; ++i) {
         ptr actor = mem.rd<ptr>(actors_ptr + i * 8);
