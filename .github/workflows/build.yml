@@ -25,9 +25,11 @@ jobs:
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/hardware/libhardware temp_libhardware
         git clone --depth 1 https://android.googlesource.com/platform/system/libbase temp_libbase
         
+        rm -rf include
         mkdir -p include
-        # Копируем базовые include (там лежит input)
-        cp -r temp_native/include/* ./include/
+        
+        # Копируем только папку input из корня (избегаем конфликта файла gui)
+        cp -r temp_native/include/input ./include/
         
         # Копируем специфичные библиотеки
         cp -r temp_native/libs/gui/include/* ./include/
@@ -64,7 +66,6 @@ jobs:
             static void registerHidlService(const char* serviceName, sp<IBinder> service);
         };
         }
-        // Исправляем макрос: принимает сколько угодно аргументов
         #define DECLARE_HYBRID_META_INTERFACE(...)
         #define IMPLEMENT_HYBRID_META_INTERFACE(...)
         EOF
