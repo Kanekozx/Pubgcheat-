@@ -28,10 +28,7 @@ jobs:
         rm -rf include
         mkdir -p include
         
-        # Копируем только папку input из корня (избегаем конфликта файла gui)
         cp -r temp_native/include/input ./include/
-        
-        # Копируем специфичные библиотеки
         cp -r temp_native/libs/gui/include/* ./include/
         cp -r temp_native/libs/ui/include/* ./include/
         cp -r temp_native/libs/binder/include/* ./include/
@@ -47,7 +44,10 @@ jobs:
         cp -r temp_libhardware/include/hardware ./include/
         cp -r temp_libbase/include/* ./include/
 
-        # ПАТЧИМ ОШИБКУ АЛЛОКАТОРА (C++17)
+        # ПАТЧ 1: Добавляем недостающий include в LayerState.h
+        sed -i '1i #include <android/native_window.h>' include/gui/LayerState.h
+
+        # ПАТЧ 2: Ошибка аллокатора (C++17)
         sed -i '/^class InlineStdAllocator {/a\public:\n    template <typename U> struct rebind { typedef InlineStdAllocator<U, SIZE> other; };' include/ui/FatVector.h
 
         # ВНЕДРЯЕМ ExtendableType ПРЯМО В GraphicTypes.h
@@ -70,6 +70,7 @@ jobs:
         #define IMPLEMENT_HYBRID_META_INTERFACE(...)
         EOF
 
+        # Заглушки для bufferqueue HIDL
         mkdir -p include/android/hardware/graphics/bufferqueue/1.0
         cat << 'EOF' > include/android/hardware/graphics/bufferqueue/1.0/IGraphicBufferProducer.h
         #pragma once
@@ -80,6 +81,15 @@ jobs:
         } } } } }
         EOF
 
+        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/1.0/IProducerListener.h
+        #pragma once
+        #include <cstdint>
+        #include <binder/IBinder.h>
+        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V1_0 {
+        struct IProducerListener : public virtual android::RefBase {};
+        } } } } }
+        EOF
+
         mkdir -p include/android/hardware/graphics/bufferqueue/2.0
         cat << 'EOF' > include/android/hardware/graphics/bufferqueue/2.0/IGraphicBufferProducer.h
         #pragma once
@@ -87,6 +97,15 @@ jobs:
         #include <binder/IBinder.h>
         namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V2_0 {
         struct IGraphicBufferProducer : public virtual android::RefBase {};
+        } } } } }
+        EOF
+
+        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/2.0/IProducerListener.h
+        #pragma once
+        #include <cstdint>
+        #include <binder/IBinder.h>
+        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V2_0 {
+        struct IProducerListener : public virtual android::RefBase {};
         } } } } }
         EOF
 
