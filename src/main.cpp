@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <string>
 #include <cstring>
+#include <algorithm>
 
 static volatile sig_atomic_t g_stop = 0;
 static void on_sig(int) { g_stop = 1; }
@@ -19,13 +20,25 @@ static void on_sig(int) { g_stop = 1; }
 // Функция для поиска UWorld через GObjects
 ptr find_u_world(const Proc& mem, ptr base, const UEOffsets& off) {
     ptr gobjects = base + off.GObjects;
-    ptr objects_ptr = mem.rd<ptr>(gobjects);
-    u32 num_elements = mem.rd<u32>(gobjects + 0x14);
+    
+    // В UE4 массив объектов (TUObjectArray) находится внутри FUObjectArray со смещением 0x10
+    ptr objects_ptr = mem.rd<ptr>(gobjects + 0x10);
+    u32 num_elements = mem.rd<u32>(gobjects + 0x1C);
+    
+    // Если не сработало, пробуем старый вариант (напрямую)
+    if (!objects_ptr || num_elements == 0) {
+        objects_ptr = mem.rd<ptr>(gobjects);
+        num_elements = mem.rd<u32>(gobjects + 0x14);
+    }
 
-    if (!objects_ptr || num_elements > 5000000) return 0;
+    LOG("GObjects base: %p, objects_ptr: %p, num_elements: %u", (void*)gobjects, (void*)objects_ptr, num_elements);
+
+    if (!objects_ptr || num_elements == 0 || num_elements > 5000000) return 0;
+    
     ptr gnames = base + off.GNames;
+    u32 limit = std::min<u32>(num_elements, 100000); // Ограничитель, чтобы не зависало
 
-    for (u32 i = 0; i < num_elements; ++i) {
+    for (u32 i = 0; i < limit; ++i) {
         u32 chunk_idx = i / 0x10000;
         u32 offset = i % 0x10000;
         ptr chunk = mem.rd<ptr>(objects_ptr + chunk_idx * 8);
@@ -33,10 +46,11 @@ ptr find_u_world(const Proc& mem, ptr base, const UEOffsets& off) {
         ptr obj = mem.rd<ptr>(chunk + offset * 8);
         if (!obj) continue;
 
-        // Читаем имя объекта (NamePrivate)
+        // Читаем имя объекта (NamePrivate) на смещении 0x18
         u32 name_idx = mem.rd<u32>(obj + 0x18);
         u32 fname_chunk_idx = name_idx >> 16;
         u32 fname_offset = name_idx & 0xFFFF;
+        
         ptr fname_chunk = mem.rd<ptr>(gnames + 8 + fname_chunk_idx * 8);
         if (!fname_chunk) continue;
 
@@ -54,8 +68,11 @@ ptr find_u_world(const Proc& mem, ptr base, const UEOffsets& off) {
             } else {
                 mem.read(entry_ptr + 2, name, len);
             }
-            if (strcmp(name, "World") == 0) {
-                return obj; // Нашли UWorld!
+            
+            // ИЩЕМ THEWORLD
+            if (strcmp(name, "TheWorld") == 0 || strcmp(name, "World") == 0) {
+                LOG("Found UWorld at index %u: %p", i, (void*)obj);
+                return obj;
             }
         }
     }
@@ -87,7 +104,7 @@ int main(int argc, char** argv) {
     aim.fov_deg = 15.0f;
 
     while (!g_stop) {
-        // Вместо чтения GWorld, ищем его через GObjects
+        // Ищем UWorld
         ptr gworld = find_u_world(mem, ue4->base, off);
         if (!gworld) { usleep(500'000); continue; }
 
