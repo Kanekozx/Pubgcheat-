@@ -66,17 +66,29 @@ jobs:
         #pragma once
         #include <cstdint>
         #include <binder/IBinder.h>
-        namespace android {
-        namespace hardware {
-        namespace graphics {
-        namespace bufferqueue {
-        namespace V1_0 {
+        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V1_0 {
         struct IGraphicBufferProducer : public virtual android::RefBase {};
-        }
-        }
-        }
-        }
-        }
+        } } } } }
+        EOF
+
+        mkdir -p include/android/hardware/graphics/bufferqueue/2.0
+        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/2.0/IGraphicBufferProducer.h
+        #pragma once
+        #include <cstdint>
+        #include <binder/IBinder.h>
+        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V2_0 {
+        struct IGraphicBufferProducer : public virtual android::RefBase {};
+        } } } } }
+        EOF
+
+        mkdir -p include/android/hardware/graphics/bufferqueue/3.0
+        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/3.0/IGraphicBufferProducer.h
+        #pragma once
+        #include <cstdint>
+        #include <binder/IBinder.h>
+        namespace android { namespace hardware { namespace graphics { namespace bufferqueue { namespace V3_0 {
+        struct IGraphicBufferProducer : public virtual android::RefBase {};
+        } } } } }
         EOF
 
         # --- СОЗДАЕМ AIDL ЗАГОЛОВКИ ---
