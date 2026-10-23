@@ -25,8 +25,8 @@ jobs:
         export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden"
         export LDFLAGS="-pie -pthread -llog -ldl"
         
-        # ВАЖНО: используем overlay_null.cpp вместо overlay_egl.cpp
-        $CXX $CXXFLAGS -o pubg_cheat main.cpp module.cpp esp.cpp aimbot.cpp offsets.cpp overlay_null.cpp menu.cpp $LDFLAGS
+        # ВАЖНО: Добавили src/ перед каждым файлом
+        $CXX $CXXFLAGS -o pubg_cheat src/main.cpp src/module.cpp src/esp.cpp src/aimbot.cpp src/offsets.cpp src/overlay_null.cpp src/menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
 
     - name: Setup Gradle
@@ -38,6 +38,7 @@ jobs:
     - name: Setup App Module
       run: |
         mkdir -p app/src/main/java/com/cheat/overlay
+        # Проверяем, куда ты загрузил файлы приложения. Если в корень - убираем android_app/
         cp android_app/AndroidManifest.xml app/src/main/AndroidManifest.xml
         cp android_app/MainActivity.kt app/src/main/java/com/cheat/overlay/MainActivity.kt
         cp android_app/OverlayService.kt app/src/main/java/com/cheat/overlay/OverlayService.kt
