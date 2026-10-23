@@ -102,6 +102,22 @@ jobs:
         enum class Compression : int32_t { UNCOMPRESSED = 0, DRM_GRALLOC = 1, DRM_FRAMEBUFFER = 2, HEIF = 3 };
         }
         EOF
+        
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Cta861_3.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        enum class Cta861_3 : int32_t { UNKNOWN = 0, SMPTE_2084 = 1, SMPTE_428_1 = 2 };
+        }
+        EOF
+
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Hdr.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        enum class Hdr : int32_t { UNKNOWN = 0, DOLBY_VISION = 1, HDR10 = 2, HLG = 3, HDR10_PLUS = 4 };
+        }
+        EOF
 
     - name: Build
       run: |
