@@ -23,8 +23,6 @@ jobs:
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/core temp_core
         git clone --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/hardware/libhardware temp_libhardware
-        
-        # Качаем libbase без указания тега (берем дефолтную ветку)
         git clone --depth 1 https://android.googlesource.com/platform/system/libbase temp_libbase
         
         mkdir -p include
@@ -40,12 +38,33 @@ jobs:
         cp -r temp_core/libsystem/include/* ./include/
         cp -r temp_logging/liblog/include/* ./include/
         cp -r temp_libhardware/include/hardware ./include/
-        
-        # Копируем libbase
         cp -r temp_libbase/include/* ./include/
+
+        # --- СОЗДАЕМ ЗАГОЛОВОК hidl/hidl ---
+        mkdir -p include/hidl
+        cat << 'EOF' > include/hidl/HybridInterface.h
+        #pragma once
+        #include <cstdint>
+        #include <binder/IBinder.h>
+        namespace android {
+        class HybridInterface {
+        public:
+            static sp<IBinder> getHidlService(const char* serviceName, const char* interfaceName);
+            static void registerHidlService(const char* serviceName, sp<IBinder> service);
+        };
+        }
+        EOF
 
         # --- СОЗДАЕМ AIDL ЗАГОЛОВКИ ---
         mkdir -p include/aidl/android/hardware/graphics/common
+        
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/ExtendableType.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        struct ExtendableType { uint64_t name; int32_t value; };
+        }
+        EOF
         
         cat << 'EOF' > include/aidl/android/hardware/graphics/common/BlendMode.h
         #pragma once
@@ -207,7 +226,9 @@ jobs:
         export NDK=$NDK_HOME
         export PATH=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
         export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++
-        export CXXFLAGS="-std=c++20 -O2 -fPIE -fvisibility=hidden -I./include"
+        
+        # ВАЖНО: Понизили стандарт до C++17
+        export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden -I./include"
         
         export LDFLAGS="-pie -pthread -Wl,--allow-shlib-undefined -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid -lhardware -lbase"
         
