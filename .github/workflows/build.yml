@@ -25,26 +25,50 @@ jobs:
         export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden"
         export LDFLAGS="-pie -pthread -llog -ldl"
         
-        # ВАЖНО: Добавили src/ перед каждым файлом
         $CXX $CXXFLAGS -o pubg_cheat src/main.cpp src/module.cpp src/esp.cpp src/aimbot.cpp src/offsets.cpp src/overlay_null.cpp src/menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
 
     - name: Setup Gradle
       run: |
         echo "include ':app'" > settings.gradle
-        echo "buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.1.0' } }" > build.gradle
-        echo "allprojects { repositories { google(); mavenCentral() } }" >> build.gradle
+        cat << 'EOF' > build.gradle
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:8.1.0'
+            }
+        }
+        allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        EOF
 
     - name: Setup App Module
       run: |
         mkdir -p app/src/main/java/com/cheat/overlay
-        # Проверяем, куда ты загрузил файлы приложения. Если в корень - убираем android_app/
         cp android_app/AndroidManifest.xml app/src/main/AndroidManifest.xml
         cp android_app/MainActivity.kt app/src/main/java/com/cheat/overlay/MainActivity.kt
         cp android_app/OverlayService.kt app/src/main/java/com/cheat/overlay/OverlayService.kt
         
-        echo "apply plugin: 'com.android.application'" > app/build.gradle
-        echo "android { namespace 'com.cheat.overlay'; compileSdk 34; defaultConfig { applicationId 'com.cheat.overlay'; minSdk 26; targetSdk 34 } }" >> app/build.gradle
+        cat << 'EOF' > app/build.gradle
+        apply plugin: 'com.android.application'
+
+        android {
+            namespace 'com.cheat.overlay'
+            compileSdk 34
+            defaultConfig {
+                applicationId 'com.cheat.overlay'
+                minSdk 26
+                targetSdk 34
+            }
+        }
+        EOF
 
     - name: Build APK
       run: |
