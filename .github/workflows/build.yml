@@ -36,7 +36,7 @@ jobs:
         cp -r temp_core/libsystem/include/* ./include/
         cp -r temp_logging/liblog/include/* ./include/
 
-        # ДОБАВЛЯЕМ ВСЕ ОСТАВШИЕСЯ ЗАГОЛОВКИ AIDL
+        # --- СОЗДАЕМ AIDL ЗАГОЛОВКИ ---
         mkdir -p include/aidl/android/hardware/graphics/common
         
         cat << 'EOF' > include/aidl/android/hardware/graphics/common/BlendMode.h
@@ -148,6 +148,48 @@ jobs:
         #include <cstdint>
         namespace aidl::android::hardware::graphics::common {
         struct Smpte432 { uint16_t redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY; };
+        }
+        EOF
+
+        # --- СОЗДАЕМ HIDL ЗАГОЛОВКИ ---
+        mkdir -p include/android/hardware/graphics/common/1.0
+        cat << 'EOF' > include/android/hardware/graphics/common/1.0/types.h
+        #pragma once
+        #include <cstdint>
+        namespace android::hardware::graphics::common::V1_0 {
+            enum class Dataspace : int32_t { UNKNOWN = 0, ARBITRARY = 1, SRGB = 2 };
+            enum class Hdr : int32_t { UNKNOWN = 0, DOLBY_VISION = 1, HDR10 = 2, HLG = 3, HDR10_PLUS = 4 };
+            enum class ColorMode : int32_t { DEFAULT = 0, SRGB = 1, DISPLAY_P3 = 2 };
+            enum class PixelFormat : int32_t { UNSPECIFIED = 0, RGBA_8888 = 1 };
+        }
+        EOF
+
+        mkdir -p include/android/hardware/graphics/common/1.1
+        cat << 'EOF' > include/android/hardware/graphics/common/1.1/types.h
+        #pragma once
+        #include <android/hardware/graphics/common/1.0/types.h>
+        namespace android::hardware::graphics::common::V1_1 {
+            using namespace android::hardware::graphics::common::V1_0;
+            enum class ColorMode : int32_t { DEFAULT = 0, SRGB = 1, DISPLAY_P3 = 2, SRGB_LINEAR = 3 };
+        }
+        EOF
+
+        mkdir -p include/android/hardware/graphics/common/1.2
+        cat << 'EOF' > include/android/hardware/graphics/common/1.2/types.h
+        #pragma once
+        #include <android/hardware/graphics/common/1.1/types.h>
+        namespace android::hardware::graphics::common::V1_2 {
+            using namespace android::hardware::graphics::common::V1_1;
+            struct BufferUsage { uint64_t producerUsage; uint64_t consumerUsage; };
+        }
+        EOF
+
+        mkdir -p include/android/hardware/graphics/common/1.3
+        cat << 'EOF' > include/android/hardware/graphics/common/1.3/types.h
+        #pragma once
+        #include <android/hardware/graphics/common/1.2/types.h>
+        namespace android::hardware::graphics::common::V1_3 {
+            using namespace android::hardware::graphics::common::V1_2;
         }
         EOF
 
