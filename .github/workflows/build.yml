@@ -17,14 +17,22 @@ jobs:
         unzip -q android-ndk-r26d-linux.zip
         echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26d" >> $GITHUB_ENV
 
-    - name: Download AOSP Headers and Libs
+    - name: Download Official AOSP Headers
       run: |
-        # Используем проверенный репозиторий, где есть папка gui
-        git clone --depth 1 https://github.com/DevonCrawford/Android-SurfaceFlinger-Overlay.git temp_overlay
+        # Скачиваем официальные исходники Android от Google
+        git clone --depth 1 https://android.googlesource.com/platform/frameworks/native temp_native
+        git clone --depth 1 https://android.googlesource.com/platform/system/core temp_core
+        git clone --depth 1 https://android.googlesource.com/platform/system/libbase temp_libbase
+        
+        # Собираем все нужные заголовки в одну папку include
         mkdir -p include
-        cp -r temp_overlay/app/src/main/cpp/include/* ./include/
-        mkdir -p libs/arm64-v8a
-        cp temp_overlay/app/src/main/jniLibs/arm64-v8a/*.so ./libs/arm64-v8a/
+        cp -r temp_native/libs/gui/include/* ./include/
+        cp -r temp_native/libs/ui/include/* ./include/
+        cp -r temp_native/libs/binder/include/* ./include/
+        cp -r temp_native/libs/utils/include/* ./include/
+        cp -r temp_core/libcutils/include/* ./include/
+        cp -r temp_core/libsystem/include/* ./include/
+        cp -r temp_libbase/include/* ./include/
 
     - name: Build
       run: |
@@ -32,7 +40,9 @@ jobs:
         export PATH=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
         export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++
         export CXXFLAGS="-std=c++20 -O2 -fPIE -fvisibility=hidden -I./include"
-        export LDFLAGS="-pie -pthread -L./libs/arm64-v8a -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils"
+        
+        # Подключаем системные библиотеки телефона
+        export LDFLAGS="-pie -pthread -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid"
         
         $CXX $CXXFLAGS -o pubg_cheat main.cpp module.cpp esp.cpp aimbot.cpp offsets.cpp overlay_egl.cpp menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
