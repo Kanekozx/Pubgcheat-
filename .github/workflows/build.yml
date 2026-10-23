@@ -17,14 +17,58 @@ jobs:
         unzip -q android-ndk-r26d-linux.zip
         echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26d" >> $GITHUB_ENV
 
-    - name: Download AOSP Headers
+    - name: Download Official AOSP Headers
       run: |
-        # Берем репозиторий, где уже сгенерированы все нужные AIDL заголовки
-        git clone --depth 1 https://github.com/springmusk026/Android-Overlay.git temp_overlay
+        # Скачиваем официальные исходники от Google
+        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/frameworks/native temp_native
+        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/core temp_core
+        git clone --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
         
         mkdir -p include
-        # Копируем ВСЮ папку include целиком
-        cp -r temp_overlay/app/src/main/cpp/include/* ./include/
+        cp -r temp_native/libs/gui/include/* ./include/
+        cp -r temp_native/libs/ui/include/* ./include/
+        cp -r temp_native/libs/binder/include/* ./include/
+        cp -r temp_native/libs/nativewindow/include/* ./include/
+        cp -r temp_native/libs/nativebase/include/* ./include/
+        cp -r temp_native/libs/arect/include/* ./include/
+        
+        cp -r temp_core/libutils/include/* ./include/
+        cp -r temp_core/libcutils/include/* ./include/
+        cp -r temp_core/libsystem/include/* ./include/
+        cp -r temp_logging/liblog/include/* ./include/
+
+        # ВРУЧНУЮ СОЗДАЕМ НЕДОСТАЮЩИЕ ЗАГОЛОВКИ AIDL
+        mkdir -p include/aidl/android/hardware/graphics/common
+        
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/BlendMode.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        enum class BlendMode : int32_t {
+            INVALID = 0, NONE = 1, PREMULTIPLIED = 2, COVERAGE = 3,
+        };
+        }
+        EOF
+        
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/ColorSpace.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        enum class ColorSpace : int32_t {
+            UNKNOWN = 0, SRGB = 1, DISPLAY_P3 = 2, BT2020 = 3, BT2100_PQ = 4, BT2100_HLG = 5,
+        };
+        }
+        EOF
+        
+        cat << 'EOF' > include/aidl/android/hardware/graphics/common/Dataspace.h
+        #pragma once
+        #include <cstdint>
+        namespace aidl::android::hardware::graphics::common {
+        enum class Dataspace : int32_t {
+            UNKNOWN = 0, ARBITRARY = 1, SRGB = 2,
+        };
+        }
+        EOF
 
     - name: Build
       run: |
