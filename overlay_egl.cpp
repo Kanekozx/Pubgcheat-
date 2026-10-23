@@ -5,6 +5,7 @@
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <android/native_window.h>
+#include <gui/LayerMetadata.h>
 
 using namespace android;
 
@@ -46,14 +47,16 @@ bool Overlay::init() {
     g_client = new SurfaceComposerClient();
     if (g_client->initCheck() != NO_ERROR) { ERR("SCC init failed"); return false; }
 
-    g_ctrl = g_client->createSurface(String8("pc_ovl"), 0, 0, PIXEL_FORMAT_RGBA_8888, ISurfaceComposerClient::eFXSurfaceBufferState, nullptr, nullptr);
+    // В Android 11 изменился метод createSurface (добавили LayerMetadata)
+    g_ctrl = g_client->createSurface(String8("pc_ovl"), 0, 0, PIXEL_FORMAT_RGBA_8888, ISurfaceComposerClient::eFXSurfaceBufferState, nullptr, LayerMetadata(), nullptr);
     if (g_ctrl == nullptr) { ERR("createSurface failed"); return false; }
 
-    g_client->openGlobalTransaction();
-    g_ctrl->setLayer(0x7FFFFFFF);
-    g_ctrl->setPosition(0, 0);
-    g_ctrl->show();
-    g_client->closeGlobalTransaction();
+    // Используем Transaction вместо openGlobalTransaction
+    SurfaceComposerClient::Transaction t;
+    t.setLayer(g_ctrl, 0x7FFFFFFF);
+    t.setPosition(g_ctrl, 0, 0);
+    t.show(g_ctrl);
+    t.apply();
 
     g_surface = g_ctrl->getSurface();
     ANativeWindow* anw = g_surface.get();
@@ -84,9 +87,15 @@ bool Overlay::init() {
 
 void Overlay::shutdown() {
     if (g_dpy) { eglMakeCurrent(g_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); eglTerminate(g_dpy); }
-    if (g_client) g_client->openGlobalTransaction();
-    if (g_ctrl)   { g_ctrl->hide(); g_ctrl->destroy(); }
-    if (g_client) g_client->closeGlobalTransaction();
+    
+    if (g_ctrl) {
+        SurfaceComposerClient::Transaction t;
+        t.hide(g_ctrl);
+        t.apply();
+        g_ctrl.clear();
+    }
+    
+    if (g_client) g_client.clear();
     g_on = false;
 }
 
