@@ -1,4 +1,4 @@
-name: Build Android Cheat
+ name: Build Android Cheat
 
 on:
   push:
@@ -17,30 +17,14 @@ jobs:
         unzip -q android-ndk-r26d-linux.zip
         echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26d" >> $GITHUB_ENV
 
-    - name: Download Official AOSP Headers
+    - name: Download AOSP Headers
       run: |
-        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/frameworks/native temp_native
-        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/core temp_core
-        git clone --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
-        git clone --depth 1 https://android.googlesource.com/platform/hardware/interfaces temp_hardware
+        # Берем репозиторий, где уже сгенерированы все нужные AIDL заголовки (например, BlendMode.h)
+        git clone --depth 1 https://github.com/springmusk026/Android-Overlay.git temp_overlay
         
         mkdir -p include
-        
-        cp -r temp_native/libs/gui/include/* ./include/
-        cp -r temp_native/libs/ui/include/* ./include/
-        cp -r temp_native/libs/binder/include/* ./include/
-        cp -r temp_native/libs/nativewindow/include/* ./include/
-        cp -r temp_native/libs/nativebase/include/* ./include/
-        cp -r temp_native/libs/arect/include/* ./include/
-        
-        cp -r temp_core/libutils/include/* ./include/
-        cp -r temp_core/libcutils/include/* ./include/
-        cp -r temp_core/libsystem/include/* ./include/
-        cp -r temp_logging/liblog/include/* ./include/
-        
-        # ИСПРАВЛЕНИЕ: Создаем папку aidl и копируем туда интерфейсы
-        mkdir -p ./include/aidl
-        cp -r temp_hardware/graphics/common/aidl/* ./include/aidl/
+        # Копируем ВСЮ папку include целиком
+        cp -r temp_overlay/app/src/main/cpp/include/* ./include/
 
     - name: Build
       run: |
