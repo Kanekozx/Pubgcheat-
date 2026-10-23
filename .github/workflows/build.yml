@@ -26,16 +26,17 @@ jobs:
         git clone --depth 1 https://android.googlesource.com/platform/system/libbase temp_libbase
         
         mkdir -p include
+        # Копируем базовые include (там лежит input)
+        cp -r temp_native/include/* ./include/
+        
+        # Копируем специфичные библиотеки
         cp -r temp_native/libs/gui/include/* ./include/
         cp -r temp_native/libs/ui/include/* ./include/
         cp -r temp_native/libs/binder/include/* ./include/
         cp -r temp_native/libs/nativewindow/include/* ./include/
         cp -r temp_native/libs/nativebase/include/* ./include/
         cp -r temp_native/libs/arect/include/* ./include/
-        
-        # ДОБАВЛЯЕМ МАТЕМАТИКУ И ВВОД
         cp -r temp_native/libs/math/include/* ./include/
-        cp -r temp_native/libs/input/include/* ./include/
         
         cp -r temp_core/libutils/include/* ./include/
         cp -r temp_core/libcutils/include/* ./include/
