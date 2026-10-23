@@ -44,10 +44,13 @@ jobs:
         cp -r temp_libhardware/include/hardware ./include/
         cp -r temp_libbase/include/* ./include/
 
-        # ПАТЧ 1: Добавляем недостающий include
+        # ПАТЧ 1: Добавляем недостающий include в LayerState.h
         sed -i '1i #include <android/native_window.h>' include/gui/LayerState.h
 
-        # ПАТЧ 2: Ошибка аллокатора (C++17)
+        # ПАТЧ 2: Делаем enum DisconnectMode публичным
+        sed -i 's/enum class DisconnectMode/public: enum class DisconnectMode/' include/gui/IGraphicBufferProducer.h
+
+        # ПАТЧ 3: Ошибка аллокатора (C++17)
         sed -i '/^class InlineStdAllocator {/a\public:\n    template <typename U> struct rebind { typedef InlineStdAllocator<U, SIZE> other; };' include/ui/FatVector.h
 
         # ВНЕДРЯЕМ ExtendableType ПРЯМО В GraphicTypes.h
@@ -67,9 +70,10 @@ jobs:
             static void registerHidlService(const char* serviceName, sp<IBinder> service);
         };
         }
-        #define DECLARE_HYBRID_META_INTERFACE(INTERFACE, HIDL_INTERFACE) \
+        // Исправляем макрос на вариативный (...)
+        #define DECLARE_HYBRID_META_INTERFACE(INTERFACE, ...) \
             DECLARE_META_INTERFACE(INTERFACE)
-        #define IMPLEMENT_HYBRID_META_INTERFACE(INTERFACE, HIDL_INTERFACE) \
+        #define IMPLEMENT_HYBRID_META_INTERFACE(INTERFACE, ...) \
             IMPLEMENT_META_INTERFACE(INTERFACE, #INTERFACE)
         EOF
 
@@ -275,7 +279,6 @@ jobs:
         export PATH=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
         export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++
         
-        # Добавили константу ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT=0
         export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden -I./include -DANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT=0"
         
         export LDFLAGS="-pie -pthread -Wl,--allow-shlib-undefined -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid -lhardware -lbase"
