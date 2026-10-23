@@ -14,11 +14,12 @@ struct FMinimalViewInfo {
 };
 
 struct UEOffsets {
-    ptr  GWorld        = 0xF0DAA54;
-    ptr  GNames        = 0xF08F830;
-    ptr  GObjects      = 0xF360880;
+    // Глобальные указатели (GWorld и GEngine мы не используем, они зашифрованы)
+    ptr  GNames        = 0xF08F830;  // Из твоего файла GName_Offset
+    ptr  GObjects      = 0xF360880;  // Из твоего файла GUObject_Offset
     ptr  Engine_LocalPlayer = 0xF0DA8EC;
 
+    // Оффсеты структур (из твоего 偏移量.json)
     u32 UWorld_PersistentLevel        = 0x30;
     u32 UWorld_OwningGameInstance     = 0x470;
     u32 ULevel_Actors                 = 0xA0;
