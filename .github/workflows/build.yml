@@ -24,6 +24,9 @@ jobs:
         git clone --depth 1 https://android.googlesource.com/platform/system/logging temp_logging
         git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/hardware/libhardware temp_libhardware
         
+        # Добавляем libbase для unique_fd.h
+        git clone -b android-11.0.0_r48 --depth 1 https://android.googlesource.com/platform/system/libbase temp_libbase
+        
         mkdir -p include
         cp -r temp_native/libs/gui/include/* ./include/
         cp -r temp_native/libs/ui/include/* ./include/
@@ -36,9 +39,10 @@ jobs:
         cp -r temp_core/libcutils/include/* ./include/
         cp -r temp_core/libsystem/include/* ./include/
         cp -r temp_logging/liblog/include/* ./include/
-        
-        # Копируем заголовки libhardware
         cp -r temp_libhardware/include/hardware ./include/
+        
+        # Копируем libbase (создает папку android-base)
+        cp -r temp_libbase/include/* ./include/
 
         # --- СОЗДАЕМ AIDL ЗАГОЛОВКИ ---
         mkdir -p include/aidl/android/hardware/graphics/common
@@ -205,7 +209,7 @@ jobs:
         export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++
         export CXXFLAGS="-std=c++20 -O2 -fPIE -fvisibility=hidden -I./include"
         
-        export LDFLAGS="-pie -pthread -Wl,--allow-shlib-undefined -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid -lhardware"
+        export LDFLAGS="-pie -pthread -Wl,--allow-shlib-undefined -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid -lhardware -lbase"
         
         $CXX $CXXFLAGS -o pubg_cheat main.cpp module.cpp esp.cpp aimbot.cpp offsets.cpp overlay_egl.cpp menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
