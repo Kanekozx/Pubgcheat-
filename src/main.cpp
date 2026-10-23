@@ -11,10 +11,56 @@
 #include <csignal>
 #include <cstdlib>
 #include <string>
-#include <iostream>
+#include <cstring>
 
 static volatile sig_atomic_t g_stop = 0;
 static void on_sig(int) { g_stop = 1; }
+
+// Функция для поиска UWorld через GObjects
+ptr find_u_world(const Proc& mem, ptr base, const UEOffsets& off) {
+    ptr gobjects = base + off.GObjects;
+    ptr objects_ptr = mem.rd<ptr>(gobjects);
+    u32 num_elements = mem.rd<u32>(gobjects + 0x14);
+
+    if (!objects_ptr || num_elements > 5000000) return 0;
+    ptr gnames = base + off.GNames;
+
+    for (u32 i = 0; i < num_elements; ++i) {
+        u32 chunk_idx = i / 0x10000;
+        u32 offset = i % 0x10000;
+        ptr chunk = mem.rd<ptr>(objects_ptr + chunk_idx * 8);
+        if (!chunk) continue;
+        ptr obj = mem.rd<ptr>(chunk + offset * 8);
+        if (!obj) continue;
+
+        // Читаем имя объекта (NamePrivate)
+        u32 name_idx = mem.rd<u32>(obj + 0x18);
+        u32 fname_chunk_idx = name_idx >> 16;
+        u32 fname_offset = name_idx & 0xFFFF;
+        ptr fname_chunk = mem.rd<ptr>(gnames + 8 + fname_chunk_idx * 8);
+        if (!fname_chunk) continue;
+
+        ptr entry_ptr = fname_chunk + fname_offset * 2;
+        u16 header = mem.rd<u16>(entry_ptr);
+        u32 len = (header >> 6) & 0x3FF;
+        bool is_wide = header & 1;
+
+        if (len > 0 && len < 64) {
+            char name[64] = {0};
+            if (is_wide) {
+                u16 wbuf[64];
+                mem.read(entry_ptr + 2, wbuf, len * 2);
+                for (u32 j = 0; j < len; ++j) name[j] = (char)wbuf[j];
+            } else {
+                mem.read(entry_ptr + 2, name, len);
+            }
+            if (strcmp(name, "World") == 0) {
+                return obj; // Нашли UWorld!
+            }
+        }
+    }
+    return 0;
+}
 
 int main(int argc, char** argv) {
     signal(SIGINT, on_sig);
@@ -30,38 +76,31 @@ int main(int argc, char** argv) {
 
     Proc mem(pid);
     auto ue4 = find_module(pid, "libUE4.so");
-    if (!ue4) {
-        std::cout << "[-] libUE4.so not found" << std::endl;
-        return 2;
-    }
-    std::cout << "[+] libUE4.so base: " << std::hex << ue4->base << std::dec << std::endl;
+    if (!ue4) return 2;
     
     UEOffsets off = load_offsets(offsets_path);
-    ptr gworld_ptr = ue4->base + off.GWorld;
-    ptr gengine_ptr = ue4->base + off.Engine_LocalPlayer;
-
-    std::cout << "[*] Starting web menu..." << std::endl;
+    
     start_web_menu();
 
     EspConfig esp; 
     AimConfig aim;
     aim.fov_deg = 15.0f;
 
-    int tick = 0;
     while (!g_stop) {
-        ptr gworld = mem.rd<ptr>(gworld_ptr);
-        ptr gengine = mem.rd<ptr>(gengine_ptr);
+        // Вместо чтения GWorld, ищем его через GObjects
+        ptr gworld = find_u_world(mem, ue4->base, off);
+        if (!gworld) { usleep(500'000); continue; }
 
-        if (tick++ % 60 == 0) {
-            std::cout << "[*] GWorld: " << std::hex << gworld << ", GEngine: " << gengine << std::dec << std::endl;
-        }
+        // Получаем GameInstance и LocalPlayer
+        ptr game_instance = mem.rd<ptr>(gworld + off.UWorld_OwningGameInstance);
+        if (!game_instance) { usleep(100'000); continue; }
 
-        if (!gworld || !gengine) { usleep(500'000); continue; }
-
-        ptr local_players = mem.rd<ptr>(gengine + 0x38);
+        ptr local_players = mem.rd<ptr>(game_instance + 0x38);
         if (!local_players) { usleep(100'000); continue; }
+
         ptr local_player = mem.rd<ptr>(local_players);
         if (!local_player) { usleep(100'000); continue; }
+
         ptr local_pc = mem.rd<ptr>(local_player + 0x30);
         if (!local_pc) { usleep(100'000); continue; }
 
