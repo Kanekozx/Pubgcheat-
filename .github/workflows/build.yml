@@ -28,7 +28,13 @@ jobs:
         $CXX $CXXFLAGS -o pubg_cheat src/main.cpp src/module.cpp src/esp.cpp src/aimbot.cpp src/offsets.cpp src/overlay_null.cpp src/menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
 
+    # ИСПОЛЬЗУЕМ ОФИЦИАЛЬНЫЙ ЭКШЕН ДЛЯ GRADLE
     - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: 8.1.1
+
+    - name: Setup Project Files
       run: |
         echo "include ':app'" > settings.gradle
         cat << 'EOF' > build.gradle
@@ -49,8 +55,6 @@ jobs:
         }
         EOF
 
-    - name: Setup App Module
-      run: |
         mkdir -p app/src/main/java/com/cheat/overlay
         cp android_app/AndroidManifest.xml app/src/main/AndroidManifest.xml
         cp android_app/MainActivity.kt app/src/main/java/com/cheat/overlay/MainActivity.kt
@@ -61,19 +65,19 @@ jobs:
 
         android {
             namespace 'com.cheat.overlay'
-            compileSdk 34
+            compileSdk 33
             defaultConfig {
                 applicationId 'com.cheat.overlay'
                 minSdk 26
-                targetSdk 34
+                targetSdk 33
             }
         }
         EOF
 
     - name: Build APK
       run: |
-        gradle wrapper --gradle-version 8.1.1
-        ./gradlew assembleDebug
+        # Теперь используем просто gradle, так как версия уже правильная
+        gradle assembleDebug
 
     - name: Upload Everything
       uses: actions/upload-artifact@v4
