@@ -40,7 +40,13 @@ jobs:
         cp -r temp_libhardware/include/hardware ./include/
         cp -r temp_libbase/include/* ./include/
 
-        # --- СОЗДАЕМ ЗАГОЛОВОК hidl/hidl ---
+        # ПАТЧИМ ОШИБКУ АЛЛОКАТОРА (C++17)
+        sed -i '/^class InlineStdAllocator {/a\public:\n    template <typename U> struct rebind { typedef InlineStdAllocator<U, SIZE> other; };' include/ui/FatVector.h
+
+        # ВНЕДРЯЕМ ExtendableType ПРЯМО В GraphicTypes.h
+        echo 'namespace aidl::android::hardware::graphics::common { struct ExtendableType { uint64_t name; int32_t value; }; }' | cat - include/ui/GraphicTypes.h > temp && mv temp include/ui/GraphicTypes.h
+
+        # --- ЗАГЛУШКИ ДЛЯ HIDL ---
         mkdir -p include/hidl
         cat << 'EOF' > include/hidl/HybridInterface.h
         #pragma once
@@ -55,16 +61,26 @@ jobs:
         }
         EOF
 
-        # --- СОЗДАЕМ AIDL ЗАГОЛОВКИ ---
-        mkdir -p include/aidl/android/hardware/graphics/common
-        
-        cat << 'EOF' > include/aidl/android/hardware/graphics/common/ExtendableType.h
+        mkdir -p include/android/hardware/graphics/bufferqueue/1.0
+        cat << 'EOF' > include/android/hardware/graphics/bufferqueue/1.0/IGraphicBufferProducer.h
         #pragma once
         #include <cstdint>
-        namespace aidl::android::hardware::graphics::common {
-        struct ExtendableType { uint64_t name; int32_t value; };
+        #include <binder/IBinder.h>
+        namespace android {
+        namespace hardware {
+        namespace graphics {
+        namespace bufferqueue {
+        namespace V1_0 {
+        struct IGraphicBufferProducer : public virtual android::RefBase {};
+        }
+        }
+        }
+        }
         }
         EOF
+
+        # --- СОЗДАЕМ AIDL ЗАГОЛОВКИ ---
+        mkdir -p include/aidl/android/hardware/graphics/common
         
         cat << 'EOF' > include/aidl/android/hardware/graphics/common/BlendMode.h
         #pragma once
@@ -227,7 +243,6 @@ jobs:
         export PATH=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
         export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++
         
-        # ВАЖНО: Понизили стандарт до C++17
         export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden -I./include"
         
         export LDFLAGS="-pie -pthread -Wl,--allow-shlib-undefined -L/system/lib64 -llog -ldl -lgui -lEGL -lGLESv3 -lbinder -lui -lutils -lcutils -landroid -lhardware -lbase"
