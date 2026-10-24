@@ -56,34 +56,31 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
     read_pov(mem, local_pc, off, pov, have_pov);
     if (!have_pov) return;
 
-    // Ищем уровень и актеров
+    static int log_timer = 0;
+    // Выводим камеру раз в секунду
+    if (log_timer++ % 60 == 0) {
+        printf("[ESP] CAM: X=%.1f Y=%.1f Z=%.1f | P=%.1f Y=%.1f | FOV=%.1f\n",
+            pov.Location.x, pov.Location.y, pov.Location.z,
+            pov.Rotation.pitch, pov.Rotation.yaw, pov.FOV);
+    }
+
     ptr level = mem.rd<ptr>(gworld + off.UWorld_PersistentLevel);
-    if (!level) { printf("[-] ESP: level is NULL\n"); return; }
-    
+    if (!level) return;
     ptr actors_ptr = mem.rd<ptr>(level + off.ULevel_Actors);
     u32 count = mem.rd<u32>(level + off.ULevel_ActorCount);
-    
-    if (!actors_ptr) { printf("[-] ESP: actors_ptr is NULL\n"); return; }
-    if (count == 0 || count > 100000) { printf("[-] ESP: count invalid (%u)\n", count); return; }
-
-    static int log_timer = 0;
-    if (log_timer++ % 120 == 0) {
-        printf("[+] ESP: Found %u actors\n", count);
-    }
+    if (!actors_ptr || count > 100000) return;
 
     ptr my_pawn = mem.rd<ptr>(local_pc + off.APlayerController_AcknowledgedPawn);
     
-    // ВАЖНО: Разрешение твоего планшета
+    // Разрешение экрана. Если не совпадает - рамки улетят.
     float sw = 3048.0f, sh = 2032.0f; 
 
+    int found = 0;
     for (u32 i = 0; i < count; ++i) {
         ptr actor = mem.rd<ptr>(actors_ptr + i * 8);
         if (!actor || actor == my_pawn) continue;
 
-        // Пытаемся прочитать здоровье (если это не персонаж, оно будет мусором или нулем)
-        float health = mem.rd<float>(actor + off.STExtraCharacter_Health);
-        if (health <= 0.0f || health > 200.0f) continue;
-
+        // ВРЕМЕННО УБРАЛИ ПРОВЕРКУ ЗДОРОВЬЯ, ЧТОБЫ УВИДЕТЬ ВСЕ ОБЪЕКТЫ
         ptr root = mem.rd<ptr>(actor + off.AActor_RootComponent);
         if (!root) continue;
         
@@ -93,16 +90,21 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
         W2SResult s;
         if (!world_to_screen(loc, pov, sw, sh, s) || s.dist > cfg.max_distance) continue;
 
-        // Рисуем бокс
+        // Выводим первые 3 объекта для проверки
+        if (found < 3 && log_timer % 60 == 0) {
+            printf("[ESP] Actor: Pos=(%.1f, %.1f, %.1f) -> Screen=(%.1f, %.1f) Dist=%.1fm\n",
+                loc.x, loc.y, loc.z, s.x, s.y, s.dist);
+            found++;
+        }
+
         float box_h = 5000.f / s.dist;
         float box_w = box_h * 0.5f;
-        float x = s.x - box_w * 0.5f;
-        float y = s.y - box_h;
-
         BoxData bd;
-        bd.x = x; bd.y = y; bd.w = box_w; bd.h = box_h;
-        char b[32]; std::snprintf(b, sizeof(b), "%dm", (int)s.dist);
-        bd.text = b;
+        bd.x = s.x - box_w * 0.5f;
+        bd.y = s.y - box_h;
+        bd.w = box_w;
+        bd.h = box_h;
+        bd.text = "";
         g_draw_list.push_back(bd);
     }
 }
