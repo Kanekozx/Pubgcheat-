@@ -58,7 +58,7 @@ void aimbot_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
         if (!actor || actor == my_pawn) continue;
 
         // ПРОВЕРКА НА ИГРОКА
-        if (!is_valid_player(mem, ue4, off, actor)) continue;
+        if (!is_valid_player(mem, off, actor)) continue;
 
         ptr root = mem.rd<ptr>(actor + off.AActor_RootComponent);
         if (!root) continue;
