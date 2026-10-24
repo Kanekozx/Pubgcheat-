@@ -37,62 +37,73 @@ int main(int argc, char** argv) {
     auto ue4 = find_module(pid, "libUE4.so");
     if (!ue4) return 2;
     
-    UEOffsets off = load_offsets(offsets_path);
     start_web_menu();
 
-    // --- ВОТ ЭТИ ДВЕ СТРОЧКИ Я ЗАБЫЛ ДОБАВИТЬ ---
     EspConfig esp;
     AimConfig aim;
     aim.fov_deg = 15.0f;
-    // --------------------------------------------
 
     while (!g_stop) {
         uint64_t enc_world = mem.rd<uint64_t>(ue4->base + 0xF0DAA54);
         uint64_t dec_world = decrypt_ptr(enc_world);
         ptr gworld = (ptr)dec_world;
         
-        if (!gworld) { 
-            printf("[-] 1. GWorld is NULL\n");
-            sleep(1); 
-            continue; 
-        }
+        if (!gworld) { usleep(500'000); continue; }
 
         ptr game_instance = mem.rd<ptr>(gworld + 0x470);
-        if (!game_instance) { 
-            printf("[-] 2. GameInstance is NULL (World: 0x%llx)\n", (unsigned long long)gworld);
-            sleep(1); 
-            continue; 
+        if (!game_instance) { usleep(500'000); continue; }
+
+        ptr local_pc = 0;
+
+        // --- ПОПЫТКА 1: Используем EncryptedLocalPlayers (0x38) ---
+        ptr enc_array_data = mem.rd<ptr>(game_instance + 0x38);
+        if (enc_array_data) {
+            // Читаем первый элемент массива
+            uint64_t enc_player = mem.rd<uint64_t>(enc_array_data);
+            if (enc_player) {
+                uint64_t dec_player = decrypt_ptr(enc_player);
+                if (dec_player) {
+                    // Проверяем PlayerController (0x30)
+                    local_pc = mem.rd<ptr>(dec_player + 0x30);
+                    if (local_pc) {
+                        printf("[+] SUCCESS via Encrypted Array! PC: 0x%llx\n", (unsigned long long)local_pc);
+                    }
+                }
+            }
         }
 
-        // Читаем LocalPlayers по оффсету 0x48 из твоего SDK
-        ptr local_players_array = mem.rd<ptr>(game_instance + 0x48);
-        if (!local_players_array) { 
-            printf("[-] 3. LocalPlayers Array is NULL (GI: 0x%llx)\n", (unsigned long long)game_instance);
-            sleep(1); 
-            continue; 
+        // --- ПОПЫТКА 2: Используем обычный LocalPlayers (0x48) и расшифровываем сам массив ---
+        if (!local_pc) {
+            ptr normal_array = mem.rd<ptr>(game_instance + 0x48);
+            if (normal_array) {
+                // Вдруг сам указатель на массив зашифрован?
+                uint64_t dec_array = decrypt_ptr((uint64_t)normal_array);
+                ptr local_player = mem.rd<ptr>(dec_array);
+                if (local_player) {
+                    // И указатель на игрока тоже зашифрован?
+                    uint64_t dec_player = decrypt_ptr((uint64_t)local_player);
+                    local_pc = mem.rd<ptr>(dec_player + 0x30);
+                    if (local_pc) {
+                        printf("[+] SUCCESS via Normal Array Decrypt! PC: 0x%llx\n", (unsigned long long)local_pc);
+                    }
+                }
+            }
         }
 
-        ptr local_player = mem.rd<ptr>(local_players_array);
-        if (!local_player) { 
-            printf("[-] 4. LocalPlayer is NULL (Array: 0x%llx)\n", (unsigned long long)local_players_array);
-            sleep(1); 
-            continue; 
+        // Если ничего не нашли, выводим отладочную инфу
+        if (!local_pc) {
+            printf("[-] LocalPC still NULL. GameInstance: 0x%llx\n", (unsigned long long)game_instance);
+            printf("    Enc Array (0x38): 0x%llx\n", (unsigned long long)mem.rd<ptr>(game_instance + 0x38));
+            printf("    Normal Array (0x48): 0x%llx\n", (unsigned long long)mem.rd<ptr>(game_instance + 0x48));
+            sleep(2);
+            continue;
         }
 
-        ptr local_pc = mem.rd<ptr>(local_player + 0x30);
-        if (!local_pc) { 
-            printf("[-] 5. LocalPC is NULL (Player: 0x%llx)\n", (unsigned long long)local_player);
-            sleep(1); 
-            continue; 
-        }
-
-        // Если всё ок
-        printf("[+] SUCCESS! LocalPC: 0x%llx\n", (unsigned long long)local_pc);
-        
-        Overlay dummy_ovl;
+        // Если нашли PC, рисуем
         esp.enabled = g_esp_enabled.load();
         aim.enabled = g_aim_enabled.load();
         
+        Overlay dummy_ovl;
         esp_tick(mem, *ue4, off, gworld, 0, local_pc, dummy_ovl, esp);
         aimbot_tick(mem, off, gworld, local_pc, dummy_ovl, aim);
 
