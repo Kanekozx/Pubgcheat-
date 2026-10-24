@@ -29,8 +29,14 @@ ptr find_u_world(const Proc& mem, ptr base, const UEOffsets& off) {
 
     if (!objects_ptr || num_elements == 0) return 0;
     
-    ptr gnames = base + off.GNames;
-    u32 limit = 50000; // TheWorld должен быть в первых 50к (индекс 536)
+    // ВАЖНО: Читаем указатель на FNamePool / TNameEntryArray
+    ptr gnames_ptr = mem.rd<ptr>(base + off.GNames);
+    if (!gnames_ptr) {
+        printf("[-] GNames pointer is null!\n");
+        return 0;
+    }
+    
+    u32 limit = 50000; // TheWorld находится на индексе 536, так что 50к хватит с головой
 
     printf("[*] Scanning up to %u elements...\n", limit);
     int valid_strings = 0;
@@ -47,11 +53,14 @@ ptr find_u_world(const Proc& mem, ptr base, const UEOffsets& off) {
         u32 fname_chunk_idx = name_idx >> 16;
         u32 fname_offset = name_idx & 0xFFFF;
         
-        // В UE4 FNamePool массив блоков начинается с 0x10, а не с 0x8
-        ptr fname_chunk = mem.rd<ptr>(gnames + 0x10 + fname_chunk_idx * 8);
+        // TStaticIndirectArrayThreadSafeRead (массив указателей)
+        ptr fname_chunk = mem.rd<ptr>(gnames_ptr + 0x10 + fname_chunk_idx * 8);
         if (!fname_chunk) continue;
 
-        ptr entry_ptr = fname_chunk + fname_offset * 2;
+        // Читаем указатель на саму строку (FNameEntry)
+        ptr entry_ptr = mem.rd<ptr>(fname_chunk + fname_offset * 8);
+        if (!entry_ptr) continue;
+
         u16 header = mem.rd<u16>(entry_ptr);
         u32 len = (header >> 6) & 0x3FF;
         bool is_wide = header & 1;
@@ -66,15 +75,21 @@ ptr find_u_world(const Proc& mem, ptr base, const UEOffsets& off) {
                 mem.read(entry_ptr + 2, name, len);
             }
             
-            // Выводим первые 50 нормальных строк для проверки
-            if (valid_strings < 50 && len > 2 && name[0] >= 32 && name[0] <= 126) {
-                printf("[DBG] Idx %u: %s\n", i, name);
-                valid_strings++;
+            // Фильтр от мусора
+            bool printable = true;
+            for (u32 j = 0; j < len; ++j) {
+                if (name[j] < 32 || name[j] > 126) { printable = false; break; }
             }
 
-            if (strcmp(name, "TheWorld") == 0 || strcmp(name, "World") == 0) {
-                printf("[+] FOUND UWorld at index %u: %p\n", i, (void*)obj);
-                return obj;
+            if (printable) {
+                if (valid_strings < 20) {
+                    printf("[DBG] Idx %u: %s\n", i, name);
+                    valid_strings++;
+                }
+                if (strcmp(name, "TheWorld") == 0 || strcmp(name, "World") == 0) {
+                    printf("[+] FOUND UWorld at index %u: %p\n", i, (void*)obj);
+                    return obj;
+                }
             }
         }
     }
