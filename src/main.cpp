@@ -3,16 +3,20 @@
 #include "module.hpp"
 #include "ue4.hpp"
 #include "offsets.hpp"
+#include "esp.hpp"
+#include "aimbot.hpp"
+#include "overlay.hpp"
 #include "menu.hpp"
 #include <unistd.h>
 #include <csignal>
 #include <cstdlib>
+#include <string>
 #include <cstring>
-#include <vector>
 
 static volatile sig_atomic_t g_stop = 0;
 static void on_sig(int) { g_stop = 1; }
 
+// Функция расшифровки указателя GWorld
 uint64_t decrypt_ptr(uint64_t ptr) {
     if (!ptr) return 0;
     return ((ptr >> 32) & 0xFFFFFFFF) | ((ptr & 0xFFFFFFFF) << 32);
@@ -32,42 +36,60 @@ int main(int argc, char** argv) {
 
     Proc mem(pid);
     auto ue4 = find_module(pid, "libUE4.so");
-    if (!ue4) return 2;
+    if (!ue4) { printf("[-] libUE4.so not found\n"); return 2; }
+    
+    UEOffsets off = load_offsets(offsets_path);
     
     start_web_menu();
 
+    EspConfig esp; 
+    AimConfig aim;
+    aim.fov_deg = 15.0f;
+
     while (!g_stop) {
+        // 1. Читаем и расшифровываем GWorld
         uint64_t enc_world = mem.rd<uint64_t>(ue4->base + 0xF0DAA54);
         uint64_t dec_world = decrypt_ptr(enc_world);
         ptr gworld = (ptr)dec_world;
         
-        if (gworld) {
-            ptr game_instance = mem.rd<ptr>(gworld + 0x470); 
-            
-            if (game_instance) {
-                printf("\n[+] GameInstance: 0x%llx\n", (unsigned long long)game_instance);
-                printf("[*] Testing LocalPlayers offsets:\n");
-                
-                // Перебираем возможные смещения для массива LocalPlayers
-                std::vector<int> offsets = {0x38, 0x40, 0x48, 0x50, 0x58, 0x60, 0x68, 0x70};
-                
-                for (int offset : offsets) {
-                    ptr local_players_array = mem.rd<ptr>(game_instance + offset);
-                    if (local_players_array) {
-                        ptr local_player = mem.rd<ptr>(local_players_array);
-                        if (local_player) {
-                            // В ULocalPlayer PlayerController обычно на 0x30
-                            ptr local_pc = mem.rd<ptr>(local_player + 0x30);
-                            if (local_pc) {
-                                printf("  Offset 0x%X: Array=0x%llx, Player=0x%llx, PC=0x%llx\n",
-                                    offset, (unsigned long long)local_players_array, (unsigned long long)local_player, (unsigned long long)local_pc);
-                            }
-                        }
-                    }
-                }
-            }
+        if (!gworld) { 
+            usleep(500'000); 
+            continue; 
         }
-        sleep(5); // Ждем 5 секунд перед следующим тестом
+
+        // 2. UWorld -> OwningGameInstance (0x470)
+        ptr game_instance = mem.rd<ptr>(gworld + 0x470);
+        if (!game_instance) { usleep(100'000); continue; }
+
+        // 3. UGameInstance -> LocalPlayers (0x48)
+        ptr local_players_array = mem.rd<ptr>(game_instance + 0x48);
+        if (!local_players_array) { usleep(100'000); continue; }
+
+        // 4. Читаем первого игрока из массива (TArray)
+        ptr local_player = mem.rd<ptr>(local_players_array);
+        if (!local_player) { usleep(100'000); continue; }
+
+        // 5. ULocalPlayer -> PlayerController (0x30)
+        ptr local_pc = mem.rd<ptr>(local_player + 0x30);
+        if (!local_pc) { usleep(100'000); continue; }
+
+        // Если дошли сюда - всё работает!
+        static bool printed_ok = false;
+        if (!printed_ok) { 
+            printf("[+] SUCCESS! LocalPC found: 0x%llx\n", (unsigned long long)local_pc); 
+            printed_ok = true; 
+        }
+
+        esp.enabled = g_esp_enabled.load();
+        aim.enabled = g_aim_enabled.load();
+
+        Overlay dummy_ovl;
+        
+        // Запускаем отрисовку рамок и аимбот
+        esp_tick(mem, *ue4, off, gworld, 0, local_pc, dummy_ovl, esp);
+        aimbot_tick(mem, off, gworld, local_pc, dummy_ovl, aim);
+
+        usleep(1000 * 1000 / 60); // 60 FPS
     }
     return 0;
 }
