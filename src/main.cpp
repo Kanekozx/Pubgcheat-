@@ -12,112 +12,33 @@
 #include <cstdlib>
 #include <string>
 #include <cstring>
-#include <algorithm>
 
 static volatile sig_atomic_t g_stop = 0;
 static void on_sig(int) { g_stop = 1; }
 
-void read_fname(const Proc& mem, ptr entry_ptr, char* out, size_t max_len) {
-    if (!entry_ptr) return;
-    u16 header = mem.rd<u16>(entry_ptr);
-    u32 len = (header >> 6) & 0x3FF; 
-    bool is_wide = header & 1;
-
-    if (len > 0 && len < max_len) {
-        if (is_wide) {
-            u16 wbuf[128];
-            mem.read(entry_ptr + 2, wbuf, len * 2);
-            for (u32 j = 0; j < len; ++j) out[j] = (char)wbuf[j];
-        } else {
-            mem.read(entry_ptr + 2, out, len);
+ptr find_u_world_via_engine(const Proc& mem, ptr base, const UEOffsets& off) {
+    // 1. Читаем GEngine (из твоего дампа Engine_Offset)
+    ptr gengine = mem.rd<ptr>(base + 0xF0DA8EC);
+    if (!gengine) {
+        // Если пусто, возможно, дампер ошибся с оффсетом, пробуем GWorld (вдруг он не зашифрован сейчас)
+        ptr gworld = mem.rd<ptr>(base + 0xF0DAA54);
+        if (gworld) {
+            printf("[*] GEngine is null, but GWorld is valid: %p\n", (void*)gworld);
+            return gworld;
         }
-        out[len] = '\0';
-    }
-}
-
-ptr find_u_world(const Proc& mem, ptr base, const UEOffsets& off) {
-    ptr gobjects = base + off.GObjects;
-    ptr objects_ptr = mem.rd<ptr>(gobjects + 0x10);
-    u32 num_elements = mem.rd<u32>(gobjects + 0x1C);
-    
-    if (!objects_ptr || num_elements == 0) {
-        objects_ptr = mem.rd<ptr>(gobjects);
-        num_elements = mem.rd<u32>(gobjects + 0x14);
+        return 0;
     }
 
-    if (!objects_ptr || num_elements == 0) return 0;
+    // 2. UEngine -> GameViewport (оффсет 0x810)
+    ptr game_viewport = mem.rd<ptr>(gengine + 0x810);
+    if (!game_viewport) return 0;
 
-    // Берем индекс 536 из твоего дампа (TheWorld)
-    u32 i = 536; 
-    u32 chunk_idx = i / 0x10000;
-    u32 offset = i % 0x10000;
-    ptr chunk = mem.rd<ptr>(objects_ptr + chunk_idx * 8);
-    if (!chunk) return 0;
-    
-    ptr obj = mem.rd<ptr>(chunk + offset * 8);
-    if (!obj) return 0;
+    // 3. UGameViewportClient -> World (оффсет 0x78)
+    ptr world = mem.rd<ptr>(game_viewport + 0x78);
+    if (!world) return 0;
 
-    u32 name_idx = mem.rd<u32>(obj + 0x18);
-    u32 fname_chunk_idx = name_idx >> 16;
-    u32 fname_offset = name_idx & 0xFFFF;
-    printf("[*] Object 536 NameIdx: 0x%X (Chunk %u, Offset %u)\n", name_idx, fname_chunk_idx, fname_offset);
-
-    char name[128];
-
-    // Метод 1: FNamePool лежит прямо по адресу base + GNames (Blocks на +0x10)
-    ptr pool = base + off.GNames;
-    ptr block1 = mem.rd<ptr>(pool + 0x10 + fname_chunk_idx * 8);
-    if (block1) {
-        memset(name, 0, sizeof(name));
-        read_fname(mem, block1 + fname_offset * 2, name, sizeof(name));
-        printf("[M1] Pool+0x10: %s\n", name);
-    }
-
-    // Метод 2: TNameEntryArray (указатель на массив чанков на +0x0)
-    ptr array_ptr = mem.rd<ptr>(base + off.GNames);
-    if (array_ptr) {
-        ptr chunks = mem.rd<ptr>(array_ptr);
-        if (chunks) {
-            ptr block2 = mem.rd<ptr>(chunks + fname_chunk_idx * 8);
-            if (block2) {
-                ptr entry2 = mem.rd<ptr>(block2 + fname_offset * 8);
-                if (entry2) {
-                    memset(name, 0, sizeof(name));
-                    read_fname(mem, entry2, name, sizeof(name));
-                    printf("[M2] TNameArray+0x0: %s\n", name);
-                }
-            }
-        }
-    }
-
-    // Метод 3: FNamePool по указателю (base + GNames - это указатель на пул)
-    ptr pool3 = mem.rd<ptr>(base + off.GNames);
-    if (pool3) {
-        ptr block3 = mem.rd<ptr>(pool3 + 0x10 + fname_chunk_idx * 8);
-        if (block3) {
-            memset(name, 0, sizeof(name));
-            read_fname(mem, block3 + fname_offset * 2, name, sizeof(name));
-            printf("[M3] PoolPtr+0x10: %s\n", name);
-        }
-    }
-
-    // Метод 4: TNameEntryArray (указатель на массив чанков на +0x8)
-    if (array_ptr) {
-        ptr chunks = mem.rd<ptr>(array_ptr + 0x8);
-        if (chunks) {
-            ptr block4 = mem.rd<ptr>(chunks + fname_chunk_idx * 8);
-            if (block4) {
-                ptr entry4 = mem.rd<ptr>(block4 + fname_offset * 8);
-                if (entry4) {
-                    memset(name, 0, sizeof(name));
-                    read_fname(mem, entry4, name, sizeof(name));
-                    printf("[M4] TNameArray+0x8: %s\n", name);
-                }
-            }
-        }
-    }
-
-    return obj; // Временно возвращаем, чтобы остановить цикл
+    printf("[+] Found UWorld via GEngine: %p (GEngine: %p)\n", (void*)world, (void*)gengine);
+    return world;
 }
 
 int main(int argc, char** argv) {
@@ -145,15 +66,44 @@ int main(int argc, char** argv) {
     aim.fov_deg = 15.0f;
 
     while (!g_stop) {
-        ptr gworld = find_u_world(mem, ue4->base, off);
+        ptr gworld = find_u_world_via_engine(mem, ue4->base, off);
+        
         if (!gworld) { 
-            printf("[-] Retrying in 1 sec...\n");
-            sleep(1); 
+            static int retries = 0;
+            if (retries++ % 60 == 0) {
+                printf("[-] UWorld not found yet. Are you in the lobby/menu? Retrying...\n");
+            }
+            usleep(100'000); 
             continue; 
         }
 
-        // Дальнейший код пока пропустим, нам главное увидеть правильный [M]
-        sleep(2);
+        // Дальше идем по стандартной цепочке
+        ptr game_instance = mem.rd<ptr>(gworld + off.UWorld_OwningGameInstance);
+        if (!game_instance) { usleep(100'000); continue; }
+
+        ptr local_players = mem.rd<ptr>(game_instance + 0x38);
+        if (!local_players) { usleep(100'000); continue; }
+
+        ptr local_player = mem.rd<ptr>(local_players);
+        if (!local_player) { usleep(100'000); continue; }
+
+        ptr local_pc = mem.rd<ptr>(local_player + 0x30);
+        if (!local_pc) { usleep(100'000); continue; }
+
+        static bool printed_ok = false;
+        if (!printed_ok) { 
+            printf("[+] LocalPlayerController found! Drawing...\n"); 
+            printed_ok = true; 
+        }
+
+        esp.enabled = g_esp_enabled.load();
+        aim.enabled = g_aim_enabled.load();
+
+        Overlay dummy_ovl;
+        esp_tick(mem, *ue4, off, gworld, 0, local_pc, dummy_ovl, esp);
+        aimbot_tick(mem, off, gworld, local_pc, dummy_ovl, aim);
+
+        usleep(1000 * 1000 / 60);
     }
     return 0;
 }
