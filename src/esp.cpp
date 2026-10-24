@@ -96,8 +96,9 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
         g_draw_list.push_back(bd);
     }
 
-static int log_timer = 0;
-if (log_timer++ % 120 == 0) {
-    printf("[ESP] Total actors: %u | Valid players: %d | List size: %zu\n", count, valid_players, g_draw_list.size());
-    fflush(stdout);
+    static int log_timer = 0;
+    if (log_timer++ % 120 == 0) {
+        printf("[ESP] Total actors: %u | Valid players: %d | List size: %zu\n", count, valid_players, g_draw_list.size());
+        fflush(stdout);
+    }
 }
