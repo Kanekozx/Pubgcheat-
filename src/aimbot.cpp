@@ -59,13 +59,15 @@ void aimbot_tick(const Proc& mem, const UEOffsets& off,
 
         float health = mem.rd<float>(actor + off.STExtraCharacter_Health);
         if (health <= 0.0f || health > 200.0f) continue;
-        if (mem.rd<bool>(actor + off.STExtraCharacter_bDead)) continue;
 
         ptr root = mem.rd<ptr>(actor + off.AActor_RootComponent);
         if (!root) continue;
         
         FVector loc;
         if (!mem.read(root + off.USceneComponent_RelativeLocation, &loc, sizeof(FVector))) continue;
+
+        // ВАЖНО: Смещение вверх для попадания в голову
+        loc.z += 60.0f; 
 
         float dx = loc.x - my_loc.x, dy = loc.y - my_loc.y, dz = loc.z - my_loc.z;
         if (std::sqrt(dx*dx + dy*dy + dz*dz) / 100.f > cfg.max_dist) continue;
@@ -83,5 +85,6 @@ void aimbot_tick(const Proc& mem, const UEOffsets& off,
     blended.roll  = 0;
     normalize(blended);
 
+    // Пишем в ControlRotation
     mem.wr<FRotator>(local_pc + off.APlayerController_ControlRotation, blended);
 }
