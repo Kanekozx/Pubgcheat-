@@ -3,14 +3,10 @@
 #include "module.hpp"
 #include "ue4.hpp"
 #include "offsets.hpp"
-#include "esp.hpp"
-#include "aimbot.hpp"
-#include "overlay.hpp"
 #include "menu.hpp"
 #include <unistd.h>
 #include <csignal>
 #include <cstdlib>
-#include <string>
 #include <cstring>
 
 static volatile sig_atomic_t g_stop = 0;
@@ -40,46 +36,56 @@ int main(int argc, char** argv) {
     start_web_menu();
 
     while (!g_stop) {
+        printf("--- TEST 1: VIA GENGINE ---\n");
+        ptr gengine = mem.rd<ptr>(ue4->base + 0xF0DA8EC);
+        printf("GEngine: 0x%llx\n", (unsigned long long)gengine);
+        
+        if (gengine && gengine > 0x6000000000) {
+            ptr viewport = mem.rd<ptr>(gengine + 0x810);
+            printf("GameViewport (0x810): 0x%llx\n", (unsigned long long)viewport);
+            
+            if (viewport && viewport > 0x6000000000) {
+                ptr world = mem.rd<ptr>(viewport + 0x78);
+                printf("World (0x78): 0x%llx\n", (unsigned long long)world);
+                
+                if (world && world > 0x6000000000) {
+                    ptr gi = mem.rd<ptr>(world + 0x470);
+                    printf("GameInstance (0x470): 0x%llx\n", (unsigned long long)gi);
+                    
+                    if (gi && gi > 0x6000000000) {
+                        // Пробуем найти LocalPlayers (0x48)
+                        uint64_t lp = mem.rd<uint64_t>(gi + 0x48);
+                        printf("LocalPlayers (0x48): 0x%llx\n", (unsigned long long)lp);
+                    }
+                }
+            }
+        }
+
+        printf("\n--- TEST 2: VIA GWorld ---\n");
         uint64_t enc_world = mem.rd<uint64_t>(ue4->base + 0xF0DAA54);
         uint64_t dec_world = decrypt_ptr(enc_world);
-        ptr gworld = (ptr)dec_world;
+        printf("Decrypted GWorld: 0x%llx\n", (unsigned long long)dec_world);
         
-        if (!gworld) { usleep(500'000); continue; }
-
-        ptr game_instance = mem.rd<ptr>(gworld + 0x470);
-        if (!game_instance) { usleep(500'000); continue; }
-
-        // Читаем флаг шифрования из SDK (0x80)
-        u8 use_encrypt = mem.rd<u8>(game_instance + 0x80);
+        if (dec_world && dec_world > 0x6000000000) {
+            ptr world = (ptr)dec_world;
+            ptr gi = mem.rd<ptr>(world + 0x470);
+            printf("GameInstance (0x470): 0x%llx\n", (unsigned long long)gi);
+            
+            if (gi && gi > 0x6000000000) {
+                // Проверяем флаг шифрования
+                u8 flag = mem.rd<u8>(gi + 0x80);
+                printf("Flag (0x80): %d\n", flag);
+                
+                // Читаем оба массива
+                ptr enc_arr = mem.rd<ptr>(gi + 0x38);
+                ptr norm_arr = mem.rd<ptr>(gi + 0x48);
+                printf("Enc Array (0x38): 0x%llx\n", (unsigned long long)enc_arr);
+                printf("Norm Array (0x48): 0x%llx\n", (unsigned long long)norm_arr);
+            }
+        }
         
-        // Читаем TArray EncryptedLocalPlayers (0x38)
-        // Структура TArray: [Указатель на данные (8 байт)] + [Кол-во (4 байта)]
-        ptr enc_data = mem.rd<ptr>(game_instance + 0x38);
-        u32 enc_count = mem.rd<u32>(game_instance + 0x40);
-
-        // Читаем TArray LocalPlayers (0x48)
-        ptr norm_data = mem.rd<ptr>(game_instance + 0x48);
-        u32 norm_count = mem.rd<u32>(game_instance + 0x50);
-
-        printf("\n=== GAME INSTANCE INFO ===\n");
-        printf("GI Address: 0x%llx\n", (unsigned long long)game_instance);
-        printf("Use Encrypt Flag (0x80): %d\n", use_encrypt);
-        printf("Encrypted Array (0x38): Data=0x%llx, Count=%u\n", (unsigned long long)enc_data, enc_count);
-        printf("Normal Array    (0x48): Data=0x%llx, Count=%u\n", (unsigned long long)norm_data, norm_count);
-
-        if (norm_count > 0 && norm_data) {
-            uint64_t raw_player = mem.rd<uint64_t>(norm_data);
-            printf("First Normal Player Raw: 0x%llx\n", (unsigned long long)raw_player);
-            printf("First Normal Player Dec: 0x%llx\n", (unsigned long long)decrypt_ptr(raw_player));
-        }
-
-        if (enc_count > 0 && enc_data) {
-            uint64_t raw_enc_player = mem.rd<uint64_t>(enc_data);
-            printf("First Encrypted Player Raw: 0x%llx\n", (unsigned long long)raw_enc_player);
-        }
-
-        printf("==========================\n");
-        sleep(3); // Пауза 3 секунды
+        printf("-----------------------------------\n");
+        sleep(3);
     }
     return 0;
 }
