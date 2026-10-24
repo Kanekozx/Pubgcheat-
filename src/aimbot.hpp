@@ -1,5 +1,6 @@
 #pragma once
 #include "mem.hpp"
+#include "module.hpp" // <--- Добавили модуль
 #include "ue4.hpp"
 #include "overlay.hpp"
 
@@ -11,6 +12,7 @@ struct AimConfig {
     bool  draw_fov    = true;
 };
 
-void aimbot_tick(const Proc& mem, const UEOffsets& off,
+// Добавили const Module& ue4
+void aimbot_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
                  ptr gworld, ptr local_pc,
                  Overlay& ovl, const AimConfig& cfg);
