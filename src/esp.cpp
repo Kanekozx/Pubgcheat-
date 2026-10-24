@@ -56,22 +56,33 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
     read_pov(mem, local_pc, off, pov, have_pov);
     if (!have_pov) return;
 
+    // Ищем уровень и актеров
     ptr level = mem.rd<ptr>(gworld + off.UWorld_PersistentLevel);
-    if (!level) return;
+    if (!level) { printf("[-] ESP: level is NULL\n"); return; }
+    
     ptr actors_ptr = mem.rd<ptr>(level + off.ULevel_Actors);
     u32 count = mem.rd<u32>(level + off.ULevel_ActorCount);
-    if (!actors_ptr || count > 100000) return;
+    
+    if (!actors_ptr) { printf("[-] ESP: actors_ptr is NULL\n"); return; }
+    if (count == 0 || count > 100000) { printf("[-] ESP: count invalid (%u)\n", count); return; }
+
+    static int log_timer = 0;
+    if (log_timer++ % 120 == 0) {
+        printf("[+] ESP: Found %u actors\n", count);
+    }
 
     ptr my_pawn = mem.rd<ptr>(local_pc + off.APlayerController_AcknowledgedPawn);
-    float sw = 3048.0f, sh = 2032.0f;
+    
+    // ВАЖНО: Разрешение твоего планшета
+    float sw = 3048.0f, sh = 2032.0f; 
 
     for (u32 i = 0; i < count; ++i) {
         ptr actor = mem.rd<ptr>(actors_ptr + i * 8);
         if (!actor || actor == my_pawn) continue;
 
+        // Пытаемся прочитать здоровье (если это не персонаж, оно будет мусором или нулем)
         float health = mem.rd<float>(actor + off.STExtraCharacter_Health);
         if (health <= 0.0f || health > 200.0f) continue;
-        if (mem.rd<bool>(actor + off.STExtraCharacter_bDead)) continue;
 
         ptr root = mem.rd<ptr>(actor + off.AActor_RootComponent);
         if (!root) continue;
@@ -82,6 +93,7 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
         W2SResult s;
         if (!world_to_screen(loc, pov, sw, sh, s) || s.dist > cfg.max_distance) continue;
 
+        // Рисуем бокс
         float box_h = 5000.f / s.dist;
         float box_w = box_h * 0.5f;
         float x = s.x - box_w * 0.5f;
