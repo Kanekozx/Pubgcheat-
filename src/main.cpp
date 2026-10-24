@@ -37,15 +37,7 @@ int main(int argc, char** argv) {
     auto ue4 = find_module(pid, "libUE4.so");
     if (!ue4) return 2;
     
-    // --- ВОТ ЭТА СТРОЧКА БЫЛА ПОТЕРЯНА ---
-    UEOffsets off = load_offsets(offsets_path);
-    // --------------------------------------
-    
     start_web_menu();
-
-    EspConfig esp;
-    AimConfig aim;
-    aim.fov_deg = 15.0f;
 
     while (!g_stop) {
         uint64_t enc_world = mem.rd<uint64_t>(ue4->base + 0xF0DAA54);
@@ -57,56 +49,37 @@ int main(int argc, char** argv) {
         ptr game_instance = mem.rd<ptr>(gworld + 0x470);
         if (!game_instance) { usleep(500'000); continue; }
 
-        ptr local_pc = 0;
-
-        // --- ПОПЫТКА 1: Используем EncryptedLocalPlayers (0x38) ---
-        ptr enc_array_data = mem.rd<ptr>(game_instance + 0x38);
-        if (enc_array_data) {
-            uint64_t enc_player = mem.rd<uint64_t>(enc_array_data);
-            if (enc_player) {
-                uint64_t dec_player = decrypt_ptr(enc_player);
-                if (dec_player) {
-                    local_pc = mem.rd<ptr>(dec_player + 0x30);
-                    if (local_pc) {
-                        printf("[+] SUCCESS via Encrypted Array! PC: 0x%llx\n", (unsigned long long)local_pc);
-                    }
-                }
-            }
-        }
-
-        // --- ПОПЫТКА 2: Используем обычный LocalPlayers (0x48) ---
-        if (!local_pc) {
-            ptr normal_array = mem.rd<ptr>(game_instance + 0x48);
-            if (normal_array) {
-                uint64_t dec_array = decrypt_ptr((uint64_t)normal_array);
-                ptr local_player = mem.rd<ptr>(dec_array);
-                if (local_player) {
-                    uint64_t dec_player = decrypt_ptr((uint64_t)local_player);
-                    local_pc = mem.rd<ptr>(dec_player + 0x30);
-                    if (local_pc) {
-                        printf("[+] SUCCESS via Normal Array Decrypt! PC: 0x%llx\n", (unsigned long long)local_pc);
-                    }
-                }
-            }
-        }
-
-        if (!local_pc) {
-            static int retries = 0;
-            if (retries++ % 60 == 0) {
-                printf("[-] LocalPC still NULL. GI: 0x%llx\n", (unsigned long long)game_instance);
-            }
-            usleep(100'000);
-            continue;
-        }
-
-        esp.enabled = g_esp_enabled.load();
-        aim.enabled = g_aim_enabled.load();
+        // Читаем флаг шифрования из SDK (0x80)
+        u8 use_encrypt = mem.rd<u8>(game_instance + 0x80);
         
-        Overlay dummy_ovl;
-        esp_tick(mem, *ue4, off, gworld, 0, local_pc, dummy_ovl, esp);
-        aimbot_tick(mem, off, gworld, local_pc, dummy_ovl, aim);
+        // Читаем TArray EncryptedLocalPlayers (0x38)
+        // Структура TArray: [Указатель на данные (8 байт)] + [Кол-во (4 байта)]
+        ptr enc_data = mem.rd<ptr>(game_instance + 0x38);
+        u32 enc_count = mem.rd<u32>(game_instance + 0x40);
 
-        usleep(1000 * 1000 / 60);
+        // Читаем TArray LocalPlayers (0x48)
+        ptr norm_data = mem.rd<ptr>(game_instance + 0x48);
+        u32 norm_count = mem.rd<u32>(game_instance + 0x50);
+
+        printf("\n=== GAME INSTANCE INFO ===\n");
+        printf("GI Address: 0x%llx\n", (unsigned long long)game_instance);
+        printf("Use Encrypt Flag (0x80): %d\n", use_encrypt);
+        printf("Encrypted Array (0x38): Data=0x%llx, Count=%u\n", (unsigned long long)enc_data, enc_count);
+        printf("Normal Array    (0x48): Data=0x%llx, Count=%u\n", (unsigned long long)norm_data, norm_count);
+
+        if (norm_count > 0 && norm_data) {
+            uint64_t raw_player = mem.rd<uint64_t>(norm_data);
+            printf("First Normal Player Raw: 0x%llx\n", (unsigned long long)raw_player);
+            printf("First Normal Player Dec: 0x%llx\n", (unsigned long long)decrypt_ptr(raw_player));
+        }
+
+        if (enc_count > 0 && enc_data) {
+            uint64_t raw_enc_player = mem.rd<uint64_t>(enc_data);
+            printf("First Encrypted Player Raw: 0x%llx\n", (unsigned long long)raw_enc_player);
+        }
+
+        printf("==========================\n");
+        sleep(3); // Пауза 3 секунды
     }
     return 0;
 }
