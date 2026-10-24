@@ -13,18 +13,26 @@ struct W2SResult { bool visible; float x, y, dist; };
 
 static bool world_to_screen(const FVector& world, const FMinimalViewInfo& pov,
                             float screen_w, float screen_h, W2SResult& out) {
+    // Вектор от камеры до цели
     FVector d = { world.x - pov.Location.x, world.y - pov.Location.y, world.z - pov.Location.z };
+    
+    // Углы камеры
     float cy = cosf(pov.Rotation.yaw * (float)M_PI / 180.f);
     float sy = sinf(pov.Rotation.yaw * (float)M_PI / 180.f);
     float cp = cosf(pov.Rotation.pitch * (float)M_PI / 180.f);
     float sp = sinf(pov.Rotation.pitch * (float)M_PI / 180.f);
 
+    // Проекция
     float fwd   =  d.x * cp * cy + d.y * cp * sy - d.z * sp;
     float right = -d.x * sy       + d.y * cy;
     float up    =  d.x * sp * cy + d.y * sp * sy + d.z * cp;
 
+    // Если цель за спиной
     if (fwd < 1.f) { out.visible = false; return false; }
+
+    // Фокусное расстояние (FOV в UE4 обычно горизонтальный, поэтому берем width)
     float f = (screen_w * 0.5f) / tanf(pov.FOV * 0.5f * (float)M_PI / 180.f);
+    
     out.x = screen_w * 0.5f + (right / fwd) * f;
     out.y = screen_h * 0.5f - (up    / fwd) * f;
     out.dist = std::sqrt(d.x*d.x + d.y*d.y + d.z*d.z) / 100.f;
@@ -63,7 +71,16 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
     if (!actors_ptr || count > 100000) return;
 
     ptr my_pawn = mem.rd<ptr>(local_pc + off.APlayerController_AcknowledgedPawn);
+    
+    // Разрешение, которое мы ожидаем
     float sw = 3048.0f, sh = 2032.0f; 
+
+    static int log_timer = 0;
+    if (log_timer++ % 120 == 0) {
+        printf("[ESP] Cam: X=%.1f Y=%.1f Z=%.1f | FOV=%.1f | P=%.1f Y=%.1f\n",
+            pov.Location.x, pov.Location.y, pov.Location.z, pov.FOV, pov.Rotation.pitch, pov.Rotation.yaw);
+        fflush(stdout);
+    }
 
     int valid_players = 0;
 
@@ -84,7 +101,8 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
 
         valid_players++;
 
-        float box_h = 5000.f / s.dist;
+        // Размер бокса зависит от дистанции
+        float box_h = 8000.f / s.dist; 
         float box_w = box_h * 0.5f;
         float x = s.x - box_w * 0.5f;
         float y = s.y - box_h;
@@ -96,23 +114,8 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
         g_draw_list.push_back(bd);
     }
 
-    static int log_timer = 0;
-    if (log_timer++ % 120 == 0) {
-        printf("[ESP] Total actors: %u | Valid players: %d | List size: %zu\n", count, valid_players, g_draw_list.size());
+    if (log_timer % 120 == 1) {
+        printf("[ESP] Valid players: %d\n", valid_players);
         fflush(stdout);
-        
-        // --- ОТЛАДКА: Сохраняем координаты в файл ---
-        FILE* f = fopen("/data/local/tmp/boxes.json", "w");
-        if (f) {
-            fprintf(f, "[");
-            for (size_t i = 0; i < g_draw_list.size(); ++i) {
-                fprintf(f, "{\"x\":%.1f,\"y\":%.1f,\"w\":%.1f,\"h\":%.1f,\"text\":\"%s\"}%s",
-                    g_draw_list[i].x, g_draw_list[i].y, g_draw_list[i].w, g_draw_list[i].h, 
-                    g_draw_list[i].text.c_str(),
-                    (i < g_draw_list.size() - 1) ? "," : "");
-            }
-            fprintf(f, "]");
-            fclose(f);
-        }
     }
 }
