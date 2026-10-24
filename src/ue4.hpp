@@ -1,5 +1,7 @@
 #pragma once
 #include "common.hpp"
+#include "mem.hpp"     
+#include "module.hpp"   
 #include <string>
 
 struct FVector  { float x, y, z; };
