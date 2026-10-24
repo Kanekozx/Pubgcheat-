@@ -57,16 +57,13 @@ void aimbot_tick(const Proc& mem, const UEOffsets& off,
         ptr actor = mem.rd<ptr>(actors_ptr + i * 8);
         if (!actor || actor == my_pawn) continue;
 
-        float health = mem.rd<float>(actor + off.STExtraCharacter_Health);
-        if (health <= 0.0f || health > 200.0f) continue;
-
         ptr root = mem.rd<ptr>(actor + off.AActor_RootComponent);
         if (!root) continue;
         
         FVector loc;
         if (!mem.read(root + off.USceneComponent_RelativeLocation, &loc, sizeof(FVector))) continue;
 
-        // ВАЖНО: Смещение вверх для попадания в голову
+        // Смещение вверх для головы
         loc.z += 60.0f; 
 
         float dx = loc.x - my_loc.x, dy = loc.y - my_loc.y, dz = loc.z - my_loc.z;
@@ -79,12 +76,17 @@ void aimbot_tick(const Proc& mem, const UEOffsets& off,
 
     if (!have) return;
 
+    static int log_timer = 0;
+    if (log_timer++ % 60 == 0) {
+        printf("[AIM] MyRot: P=%.1f Y=%.1f | Target: P=%.1f Y=%.1f\n",
+            my_rot.pitch, my_rot.yaw, best_rot.pitch, best_rot.yaw);
+    }
+
     FRotator blended;
     blended.pitch = my_rot.pitch + (best_rot.pitch - my_rot.pitch) / cfg.smoothing;
     blended.yaw   = my_rot.yaw   + (best_rot.yaw   - my_rot.yaw  ) / cfg.smoothing;
     blended.roll  = 0;
     normalize(blended);
 
-    // Пишем в ControlRotation
     mem.wr<FRotator>(local_pc + off.APlayerController_ControlRotation, blended);
 }
