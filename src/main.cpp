@@ -16,29 +16,10 @@
 static volatile sig_atomic_t g_stop = 0;
 static void on_sig(int) { g_stop = 1; }
 
-ptr find_u_world_via_engine(const Proc& mem, ptr base, const UEOffsets& off) {
-    // 1. Читаем GEngine (из твоего дампа Engine_Offset)
-    ptr gengine = mem.rd<ptr>(base + 0xF0DA8EC);
-    if (!gengine) {
-        // Если пусто, возможно, дампер ошибся с оффсетом, пробуем GWorld (вдруг он не зашифрован сейчас)
-        ptr gworld = mem.rd<ptr>(base + 0xF0DAA54);
-        if (gworld) {
-            printf("[*] GEngine is null, but GWorld is valid: %p\n", (void*)gworld);
-            return gworld;
-        }
-        return 0;
-    }
-
-    // 2. UEngine -> GameViewport (оффсет 0x810)
-    ptr game_viewport = mem.rd<ptr>(gengine + 0x810);
-    if (!game_viewport) return 0;
-
-    // 3. UGameViewportClient -> World (оффсет 0x78)
-    ptr world = mem.rd<ptr>(game_viewport + 0x78);
-    if (!world) return 0;
-
-    printf("[+] Found UWorld via GEngine: %p (GEngine: %p)\n", (void*)world, (void*)gengine);
-    return world;
+// Функция расшифровки указателя (свап 32-битных половин)
+uint64_t decrypt_ptr(uint64_t ptr) {
+    if (!ptr) return 0;
+    return ((ptr >> 32) & 0xFFFFFFFF) | ((ptr & 0xFFFFFFFF) << 32);
 }
 
 int main(int argc, char** argv) {
@@ -66,18 +47,27 @@ int main(int argc, char** argv) {
     aim.fov_deg = 15.0f;
 
     while (!g_stop) {
-        ptr gworld = find_u_world_via_engine(mem, ue4->base, off);
+        // Читаем зашифрованный GWorld (из твоего 偏移.h)
+        uint64_t enc_world = mem.rd<uint64_t>(ue4->base + 0xF0DAA54);
         
-        if (!gworld) { 
-            static int retries = 0;
-            if (retries++ % 60 == 0) {
-                printf("[-] UWorld not found yet. Are you in the lobby/menu? Retrying...\n");
-            }
-            usleep(100'000); 
+        if (!enc_world) {
+            usleep(500'000); 
             continue; 
         }
 
-        // Дальше идем по стандартной цепочке
+        // Расшифровываем его
+        uint64_t dec_world = decrypt_ptr(enc_world);
+        
+        ptr gworld = (ptr)dec_world;
+
+        static bool printed = false;
+        if (!printed) {
+            printf("[*] Encrypted GWorld: 0x%llx\n", enc_world);
+            printf("[+] Decrypted UWorld: 0x%llx\n", dec_world);
+            printed = true;
+        }
+
+        // Получаем GameInstance и LocalPlayer
         ptr game_instance = mem.rd<ptr>(gworld + off.UWorld_OwningGameInstance);
         if (!game_instance) { usleep(100'000); continue; }
 
