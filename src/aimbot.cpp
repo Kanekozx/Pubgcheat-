@@ -27,7 +27,7 @@ static float fov_delta(const FRotator& a, const FRotator& b) {
     return std::sqrt(dp*dp + dy*dy);
 }
 
-void aimbot_tick(const Proc& mem, const UEOffsets& off,
+void aimbot_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
                  ptr gworld, ptr local_pc,
                  Overlay& ovl, const AimConfig& cfg) {
     if (!cfg.enabled || !gworld || !local_pc) return;
@@ -57,14 +57,16 @@ void aimbot_tick(const Proc& mem, const UEOffsets& off,
         ptr actor = mem.rd<ptr>(actors_ptr + i * 8);
         if (!actor || actor == my_pawn) continue;
 
+        // ПРОВЕРКА НА ИГРОКА
+        if (!is_valid_player(mem, ue4, off, actor)) continue;
+
         ptr root = mem.rd<ptr>(actor + off.AActor_RootComponent);
         if (!root) continue;
         
         FVector loc;
         if (!mem.read(root + off.USceneComponent_RelativeLocation, &loc, sizeof(FVector))) continue;
 
-        // Смещение вверх для головы
-        loc.z += 60.0f; 
+        loc.z += 60.0f; // Смещение в голову
 
         float dx = loc.x - my_loc.x, dy = loc.y - my_loc.y, dz = loc.z - my_loc.z;
         if (std::sqrt(dx*dx + dy*dy + dz*dz) / 100.f > cfg.max_dist) continue;
@@ -75,12 +77,6 @@ void aimbot_tick(const Proc& mem, const UEOffsets& off,
     }
 
     if (!have) return;
-
-    static int log_timer = 0;
-    if (log_timer++ % 60 == 0) {
-        printf("[AIM] MyRot: P=%.1f Y=%.1f | Target: P=%.1f Y=%.1f\n",
-            my_rot.pitch, my_rot.yaw, best_rot.pitch, best_rot.yaw);
-    }
 
     FRotator blended;
     blended.pitch = my_rot.pitch + (best_rot.pitch - my_rot.pitch) / cfg.smoothing;
