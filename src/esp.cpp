@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdio>
 #include <mutex>
+#include <algorithm>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -24,10 +25,7 @@ static bool world_to_screen(const FVector& world, const FMinimalViewInfo& pov,
     float up    =  d.x * sp * cy + d.y * sp * sy + d.z * cp;
 
     if (fwd < 1.f) { out.visible = false; return false; }
-    
-    // ВАЖНО: Исправляем FOV на горизонтальный (от ширины экрана)
-    float f = (screen_w * 0.5f) / tanf(pov.FOV * 0.5f * (float)M_PI / 180.f);
-    
+    float f = (screen_h * 0.5f) / tanf(pov.FOV * 0.5f * (float)M_PI / 180.f);
     out.x = screen_w * 0.5f + (right / fwd) * f;
     out.y = screen_h * 0.5f - (up    / fwd) * f;
     out.dist = std::sqrt(d.x*d.x + d.y*d.y + d.z*d.z) / 100.f;
@@ -68,31 +66,76 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
     ptr my_pawn = mem.rd<ptr>(local_pc + off.APlayerController_AcknowledgedPawn);
     float sw = 3048.0f, sh = 2032.0f; 
 
+    static int log_timer = 0;
+    bool do_log = (log_timer++ % 120 == 0); // Логируем раз в 2 секунды
+
+    if (do_log) {
+        printf("[ESP DIAG] Total actors: %u\n", count);
+    }
+
+    int valid_players = 0;
+
     for (u32 i = 0; i < count; ++i) {
         ptr actor = mem.rd<ptr>(actors_ptr + i * 8);
         if (!actor || actor == my_pawn) continue;
 
-        // Проверяем, что это реальный игрок
-        if (!is_valid_player(mem, ue4, off, actor)) continue;
-
-        ptr root = mem.rd<ptr>(actor + off.AActor_RootComponent);
-        if (!root) continue;
+        // Читаем имя класса для проверки
+        ptr class_ptr = mem.rd<ptr>(actor + 0x10);
+        if (!class_ptr) continue;
+        u32 name_idx = mem.rd<u32>(class_ptr + 0x18);
         
-        FVector loc;
-        if (!mem.read(root + off.USceneComponent_RelativeLocation, &loc, sizeof(FVector))) continue;
+        ptr gnames_base = ue4.base + off.GNames;
+        ptr gnames_ptr = mem.rd<ptr>(gnames_base);
+        if (!gnames_ptr) continue;
 
-        W2SResult s;
-        if (!world_to_screen(loc, pov, sw, sh, s) || s.dist > cfg.max_distance) continue;
+        ptr chunk = mem.rd<ptr>(gnames_ptr + 0x10 + (name_idx >> 16) * 8);
+        if (!chunk) continue;
+        ptr entry = mem.rd<ptr>(chunk + (name_idx & 0xFFFF) * 8);
+        if (!entry) continue;
 
-        float box_h = 5000.f / s.dist;
-        float box_w = box_h * 0.5f;
-        float x = s.x - box_w * 0.5f;
-        float y = s.y - box_h;
+        u16 header = mem.rd<u16>(entry);
+        u32 len = (header >> 6) & 0x3FF;
+        if (len == 0 || len > 64) continue;
 
-        BoxData bd;
-        bd.x = x; bd.y = y; bd.w = box_w; bd.h = box_h;
-        char b[32]; std::snprintf(b, sizeof(b), "%dm", (int)s.dist);
-        bd.text = b;
-        g_draw_list.push_back(bd);
+        char class_name[64] = {0};
+        mem.read(entry + 2, class_name, std::min<u32>(len, 63));
+
+        float health = mem.rd<float>(actor + off.STExtraCharacter_Health);
+
+        if (do_log && i < 15) {
+            printf("  [%u] Class: %s | HP: %.1f\n", i, class_name, health);
+        }
+
+        // Если это игрок (по имени класса)
+        if (strstr(class_name, "PlayerCharacter") || strstr(class_name, "STExtraCharacter") || strstr(class_name, "Character")) {
+            
+            if (health <= 0.0f || health > 200.0f) continue;
+
+            ptr root = mem.rd<ptr>(actor + off.AActor_RootComponent);
+            if (!root) continue;
+            
+            FVector loc;
+            if (!mem.read(root + off.USceneComponent_RelativeLocation, &loc, sizeof(FVector))) continue;
+
+            W2SResult s;
+            if (!world_to_screen(loc, pov, sw, sh, s) || s.dist > cfg.max_distance) continue;
+
+            valid_players++;
+
+            float box_h = 5000.f / s.dist;
+            float box_w = box_h * 0.5f;
+            float x = s.x - box_w * 0.5f;
+            float y = s.y - box_h;
+
+            BoxData bd;
+            bd.x = x; bd.y = y; bd.w = box_w; bd.h = box_h;
+            char b[32]; std::snprintf(b, sizeof(b), "%dm", (int)s.dist);
+            bd.text = b;
+            g_draw_list.push_back(bd);
+        }
+    }
+
+    if (do_log) {
+        printf("[ESP DIAG] Valid players drawn: %d\n", valid_players);
     }
 }
