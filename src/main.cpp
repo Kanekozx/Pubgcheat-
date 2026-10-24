@@ -4,7 +4,6 @@
 #include "ue4.hpp"
 #include "offsets.hpp"
 #include "esp.hpp"
-#include "aimbot.hpp"
 #include "overlay.hpp"
 #include "menu.hpp"
 #include <unistd.h>
@@ -40,11 +39,9 @@ int main(int argc, char** argv) {
     printf("[*] libUE4.so found at 0x%llx\n", (unsigned long long)ue4->base);
 
     UEOffsets off = load_offsets(offsets_path);
-    start_web_menu();
+    start_web_menu(); // Запускаем сервер для приложения
 
     EspConfig esp; 
-    AimConfig aim;
-    aim.fov_deg = 15.0f;
 
     printf("[*] Starting main loop...\n");
 
@@ -86,11 +83,11 @@ int main(int argc, char** argv) {
         }
 
         esp.enabled = g_esp_enabled.load();
-        aim.enabled = g_aim_enabled.load();
 
         Overlay dummy_ovl;
+        
+        // Только ESP!
         esp_tick(mem, *ue4, off, cached_gworld, 0, cached_local_pc, dummy_ovl, esp);
-        aimbot_tick(mem, *ue4, off, cached_gworld, cached_local_pc, dummy_ovl, aim);
 
         usleep(1000 * 1000 / 60);
     }
