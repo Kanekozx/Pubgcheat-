@@ -1,4 +1,4 @@
-name: Build Cheat and App
+name: Build C++ Only
 
 on:
   push:
@@ -25,77 +25,12 @@ jobs:
         export CXXFLAGS="-std=c++17 -O2 -fPIE -fvisibility=hidden"
         export LDFLAGS="-pie -pthread -llog -ldl"
         
+        # Собираем только бинарник
         $CXX $CXXFLAGS -o pubg_cheat src/main.cpp src/module.cpp src/esp.cpp src/aimbot.cpp src/offsets.cpp src/overlay_null.cpp src/menu.cpp $LDFLAGS
         $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip pubg_cheat
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-      with:
-        gradle-version: 8.1.1
-
-    - name: Setup Project Files
-      run: |
-        echo "include ':app'" > settings.gradle
-        cat << 'EOF' > build.gradle
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.0'
-                classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0'
-            }
-        }
-        allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        EOF
-
-        mkdir -p app/src/main/java/com/cheat/overlay
-        cp android_app/AndroidManifest.xml app/src/main/AndroidManifest.xml
-        cp android_app/MainActivity.kt app/src/main/java/com/cheat/overlay/MainActivity.kt
-        cp android_app/OverlayService.kt app/src/main/java/com/cheat/overlay/OverlayService.kt
-        
-        cat << 'EOF' > app/build.gradle
-        apply plugin: 'com.android.application'
-        apply plugin: 'kotlin-android'
-
-        android {
-            namespace 'com.cheat.overlay'
-            compileSdk 33
-            defaultConfig {
-                applicationId 'com.cheat.overlay'
-                minSdk 26
-                targetSdk 33
-            }
-            
-            // ВЫРАВНИВАЕМ ВЕРСИИ JAVA И KOTLIN
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-            kotlinOptions {
-                jvmTarget = '17'
-            }
-        }
-
-        dependencies {
-            implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.0"
-        }
-        EOF
-
-    - name: Build APK
-      run: |
-        gradle assembleDebug
-
-    - name: Upload Everything
+    - name: Upload Binary
       uses: actions/upload-artifact@v4
       with:
         name: CheatPackage
-        path: |
-          pubg_cheat
-          app/build/outputs/apk/debug/app-debug.apk
+        path: pubg_cheat
