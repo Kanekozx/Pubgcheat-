@@ -40,6 +40,12 @@ int main(int argc, char** argv) {
     UEOffsets off = load_offsets(offsets_path);
     start_web_menu();
 
+    // --- ВОТ ЭТИ ДВЕ СТРОЧКИ Я ЗАБЫЛ ДОБАВИТЬ ---
+    EspConfig esp;
+    AimConfig aim;
+    aim.fov_deg = 15.0f;
+    // --------------------------------------------
+
     while (!g_stop) {
         uint64_t enc_world = mem.rd<uint64_t>(ue4->base + 0xF0DAA54);
         uint64_t dec_world = decrypt_ptr(enc_world);
