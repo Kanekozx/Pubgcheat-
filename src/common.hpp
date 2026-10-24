@@ -3,11 +3,10 @@
 #include <cstdio>
 #include <cstring>
 #include <unistd.h>
-#include <android/log.h>
 
 #define LOG_TAG "pc"
-#define LOG(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
-#define ERR(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOG(...) printf(__VA_ARGS__); printf("\n")
+#define ERR(...) printf("ERROR: "); printf(__VA_ARGS__); printf("\n")
 
 using u8  = uint8_t;
 using u16 = uint16_t;
