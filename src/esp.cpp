@@ -100,5 +100,19 @@ void esp_tick(const Proc& mem, const Module& ue4, const UEOffsets& off,
     if (log_timer++ % 120 == 0) {
         printf("[ESP] Total actors: %u | Valid players: %d | List size: %zu\n", count, valid_players, g_draw_list.size());
         fflush(stdout);
+        
+        // --- ОТЛАДКА: Сохраняем координаты в файл ---
+        FILE* f = fopen("/data/local/tmp/boxes.json", "w");
+        if (f) {
+            fprintf(f, "[");
+            for (size_t i = 0; i < g_draw_list.size(); ++i) {
+                fprintf(f, "{\"x\":%.1f,\"y\":%.1f,\"w\":%.1f,\"h\":%.1f,\"text\":\"%s\"}%s",
+                    g_draw_list[i].x, g_draw_list[i].y, g_draw_list[i].w, g_draw_list[i].h, 
+                    g_draw_list[i].text.c_str(),
+                    (i < g_draw_list.size() - 1) ? "," : "");
+            }
+            fprintf(f, "]");
+            fclose(f);
+        }
     }
 }
