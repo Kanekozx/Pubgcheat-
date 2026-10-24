@@ -8,6 +8,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 static volatile sig_atomic_t g_stop = 0;
 static void on_sig(int) { g_stop = 1; }
@@ -33,7 +34,6 @@ int main(int argc, char** argv) {
     auto ue4 = find_module(pid, "libUE4.so");
     if (!ue4) return 2;
     
-    UEOffsets off = load_offsets(offsets_path);
     start_web_menu();
 
     while (!g_stop) {
@@ -42,27 +42,32 @@ int main(int argc, char** argv) {
         ptr gworld = (ptr)dec_world;
         
         if (gworld) {
-            // Читаем разные оффсеты из твоего дампа
-            ptr level = mem.rd<ptr>(gworld + 0x30);
-            ptr game_instance = mem.rd<ptr>(gworld + 0x470); // Твой json: 0x470
-            ptr game_state = mem.rd<ptr>(gworld + 0x428);
-            ptr owning_gi_alt = mem.rd<ptr>(gworld + 0x468); // Твой json: 0x468
-
-            printf("[*] GWorld: 0x%llx\n", (unsigned long long)gworld);
-            printf("[*] Level (0x30): 0x%llx\n", (unsigned long long)level);
-            printf("[*] GameInstance (0x470): 0x%llx\n", (unsigned long long)game_instance);
-            printf("[*] GameState (0x428): 0x%llx\n", (unsigned long long)game_state);
-            printf("[*] AltGI (0x468): 0x%llx\n", (unsigned long long)owning_gi_alt);
-
+            ptr game_instance = mem.rd<ptr>(gworld + 0x470); 
+            
             if (game_instance) {
-                ptr local_players = mem.rd<ptr>(game_instance + 0x38);
-                printf("[*] LocalPlayers (0x38): 0x%llx\n", (unsigned long long)local_players);
+                printf("\n[+] GameInstance: 0x%llx\n", (unsigned long long)game_instance);
+                printf("[*] Testing LocalPlayers offsets:\n");
+                
+                // Перебираем возможные смещения для массива LocalPlayers
+                std::vector<int> offsets = {0x38, 0x40, 0x48, 0x50, 0x58, 0x60, 0x68, 0x70};
+                
+                for (int offset : offsets) {
+                    ptr local_players_array = mem.rd<ptr>(game_instance + offset);
+                    if (local_players_array) {
+                        ptr local_player = mem.rd<ptr>(local_players_array);
+                        if (local_player) {
+                            // В ULocalPlayer PlayerController обычно на 0x30
+                            ptr local_pc = mem.rd<ptr>(local_player + 0x30);
+                            if (local_pc) {
+                                printf("  Offset 0x%X: Array=0x%llx, Player=0x%llx, PC=0x%llx\n",
+                                    offset, (unsigned long long)local_players_array, (unsigned long long)local_player, (unsigned long long)local_pc);
+                            }
+                        }
+                    }
+                }
             }
-            printf("-----------------------------------\n");
-        } else {
-            printf("[-] Waiting for GWorld...\n");
         }
-        sleep(3); // Ждем 3 секунды перед следующим выводом
+        sleep(5); // Ждем 5 секунд перед следующим тестом
     }
     return 0;
 }
