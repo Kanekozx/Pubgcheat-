@@ -37,6 +37,10 @@ int main(int argc, char** argv) {
     auto ue4 = find_module(pid, "libUE4.so");
     if (!ue4) return 2;
     
+    // --- ВОТ ЭТА СТРОЧКА БЫЛА ПОТЕРЯНА ---
+    UEOffsets off = load_offsets(offsets_path);
+    // --------------------------------------
+    
     start_web_menu();
 
     EspConfig esp;
@@ -58,12 +62,10 @@ int main(int argc, char** argv) {
         // --- ПОПЫТКА 1: Используем EncryptedLocalPlayers (0x38) ---
         ptr enc_array_data = mem.rd<ptr>(game_instance + 0x38);
         if (enc_array_data) {
-            // Читаем первый элемент массива
             uint64_t enc_player = mem.rd<uint64_t>(enc_array_data);
             if (enc_player) {
                 uint64_t dec_player = decrypt_ptr(enc_player);
                 if (dec_player) {
-                    // Проверяем PlayerController (0x30)
                     local_pc = mem.rd<ptr>(dec_player + 0x30);
                     if (local_pc) {
                         printf("[+] SUCCESS via Encrypted Array! PC: 0x%llx\n", (unsigned long long)local_pc);
@@ -72,15 +74,13 @@ int main(int argc, char** argv) {
             }
         }
 
-        // --- ПОПЫТКА 2: Используем обычный LocalPlayers (0x48) и расшифровываем сам массив ---
+        // --- ПОПЫТКА 2: Используем обычный LocalPlayers (0x48) ---
         if (!local_pc) {
             ptr normal_array = mem.rd<ptr>(game_instance + 0x48);
             if (normal_array) {
-                // Вдруг сам указатель на массив зашифрован?
                 uint64_t dec_array = decrypt_ptr((uint64_t)normal_array);
                 ptr local_player = mem.rd<ptr>(dec_array);
                 if (local_player) {
-                    // И указатель на игрока тоже зашифрован?
                     uint64_t dec_player = decrypt_ptr((uint64_t)local_player);
                     local_pc = mem.rd<ptr>(dec_player + 0x30);
                     if (local_pc) {
@@ -90,16 +90,15 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Если ничего не нашли, выводим отладочную инфу
         if (!local_pc) {
-            printf("[-] LocalPC still NULL. GameInstance: 0x%llx\n", (unsigned long long)game_instance);
-            printf("    Enc Array (0x38): 0x%llx\n", (unsigned long long)mem.rd<ptr>(game_instance + 0x38));
-            printf("    Normal Array (0x48): 0x%llx\n", (unsigned long long)mem.rd<ptr>(game_instance + 0x48));
-            sleep(2);
+            static int retries = 0;
+            if (retries++ % 60 == 0) {
+                printf("[-] LocalPC still NULL. GI: 0x%llx\n", (unsigned long long)game_instance);
+            }
+            usleep(100'000);
             continue;
         }
 
-        // Если нашли PC, рисуем
         esp.enabled = g_esp_enabled.load();
         aim.enabled = g_aim_enabled.load();
         
