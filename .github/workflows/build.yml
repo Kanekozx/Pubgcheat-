@@ -20,12 +20,11 @@ jobs:
 
     - name: Download Dependencies & Patch Dobby
       run: |
-        # Скачиваем библиотеки
         git clone --depth 1 https://github.com/jmpews/Dobby.git
         git clone --depth 1 https://github.com/ocornut/imgui.git
         
-        # ПАТЧ 1: Добавляем нехватающий заголовок для OSMemory
-        sed -i '1i #include "source/Backend/UserMode/Memory.h"' Dobby/common/os_arch_features.h
+        # ПАТЧ 1: Правильный относительный путь к Memory.h
+        sed -i '1i #include "../source/Backend/UserMode/Memory.h"' Dobby/common/os_arch_features.h
         
         # ПАТЧ 2: Исправляем iOS-синтаксис ассемблера на Android/Linux
         sed -i 's/@PAGE//g' Dobby/source/TrampolineBridge/ClosureTrampolineBridge/arm64/closure_bridge_arm64.asm
