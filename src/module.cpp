@@ -1,3 +1,4 @@
+#include <sys/types.h>   // ← вот это, ПЕРВОЙ строкой
 #include "zygisk.hpp"
 #include "memory.h"
 #include "sdk.h"
