@@ -1,47 +1,49 @@
-name: Build Internal Cheat
+name: build
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Android NDK
-      run: |
-        wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
-        unzip -q android-ndk-r26d-linux.zip
-        echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26d" >> $GITHUB_ENV
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install -y zip
 
-    - name: Download Dependencies & Patch Dobby
-      run: |
-        git clone --depth 1 https://github.com/jmpews/Dobby.git
-        git clone --depth 1 https://github.com/ocornut/imgui.git
-        
-        # ПАТЧ 1: Правильный относительный путь к Memory.h
-        sed -i '1i #include "../source/Backend/UserMode/Memory.h"' Dobby/common/os_arch_features.h
-        
-        # ПАТЧ 2: Исправляем iOS-синтаксис ассемблера на Android/Linux
-        sed -i 's/@PAGE//g' Dobby/source/TrampolineBridge/ClosureTrampolineBridge/arm64/closure_bridge_arm64.asm
-        sed -i 's/@PAGEOFF/:lo12:/g' Dobby/source/TrampolineBridge/ClosureTrampolineBridge/arm64/closure_bridge_arm64.asm
+      - name: Setup NDK
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
+          unzip -q android-ndk-r25c-linux.zip
+          echo "ANDROID_NDK=$PWD/android-ndk-r25c" >> $GITHUB_ENV
 
-    - name: Build with CMake
-      run: |
-        export PATH=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
-        cmake -B build \
-          -DCMAKE_TOOLCHAIN_FILE=$NDK_HOME/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=arm64-v8a \
-          -DANDROID_PLATFORM=android-29 \
-          -DCMAKE_BUILD_TYPE=Release
-        cmake --build build --config Release -j4
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-28 \
+            -DANDROID_STL=c++_static \
+            -DCMAKE_BUILD_TYPE=Release
 
-    - name: Upload libmain.so
-      uses: actions/upload-artifact@v4
-      with:
-        name: libmain
-        path: build/libmain.so
+      - name: Build
+        run: cmake --build build -j8
+
+      - name: Package Magisk zip
+        run: |
+          mkdir -p out/zygisk out/META-INF/com/google/android
+          cp module.prop customize.sh out/
+          cp META-INF/com/google/android/update-binary out/META-INF/com/google/android/
+          cp build/libesp_internal.so out/zygisk/arm64-v8a.so
+          cd out && zip -r ../esp-internal.zip . && cd ..
+          ls -la esp-internal.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp-internal
+          path: esp-internal.zip
+          retention-days: 30
