@@ -18,10 +18,18 @@ jobs:
         unzip -q android-ndk-r26d-linux.zip
         echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26d" >> $GITHUB_ENV
 
-    - name: Download Dependencies (ImGui + Dobby)
+    - name: Download Dependencies & Patch Dobby
       run: |
+        # Скачиваем библиотеки
         git clone --depth 1 https://github.com/jmpews/Dobby.git
         git clone --depth 1 https://github.com/ocornut/imgui.git
+        
+        # ПАТЧ 1: Добавляем нехватающий заголовок для OSMemory
+        sed -i '1i #include "source/Backend/UserMode/Memory.h"' Dobby/common/os_arch_features.h
+        
+        # ПАТЧ 2: Исправляем iOS-синтаксис ассемблера на Android/Linux
+        sed -i 's/@PAGE//g' Dobby/source/TrampolineBridge/ClosureTrampolineBridge/arm64/closure_bridge_arm64.asm
+        sed -i 's/@PAGEOFF/:lo12:/g' Dobby/source/TrampolineBridge/ClosureTrampolineBridge/arm64/closure_bridge_arm64.asm
 
     - name: Build with CMake
       run: |
