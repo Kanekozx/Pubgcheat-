@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Setup Android NDK
       run: |
@@ -19,9 +21,7 @@ jobs:
 
     - name: Download Dependencies
       run: |
-        # Скачиваем Dobby (для хуков)
         git clone --depth 1 https://github.com/jmpews/Dobby.git
-        # Скачиваем ImGui (для отрисовки)
         git clone --depth 1 https://github.com/ocornut/imgui.git
 
     - name: Build with CMake
