@@ -1,0 +1,7 @@
+build/
+out/
+*.zip
+*.so
+.idea/
+.vscode/
+.DS_Store
