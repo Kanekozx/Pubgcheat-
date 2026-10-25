@@ -1,27 +1,61 @@
 cmake_minimum_required(VERSION 3.18)
-project(pubg_internal CXX)
+project(esp_internal CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Подключаем Dobby (хуки)
-add_subdirectory(Dobby)
-include_directories(Dobby/include)
+include(FetchContent)
 
-# Подключаем ImGui (меню)
-set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/imgui)
-add_library(imgui STATIC
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_android.cpp
+# ---------- ImGui (docking) ----------
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG        docking
+    GIT_SHALLOW    TRUE
 )
-target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
+FetchContent_MakeAvailable(imgui)
 
-# Собираем нашу библиотеку
-add_library(main SHARED src/main.cpp)
-target_link_libraries(main imgui dobby android log EGL GLESv3)
+# ---------- zygisk.hpp (single header, скачиваем) ----------
+set(ZYGISK_HPP ${CMAKE_BINARY_DIR}/zygisk.hpp)
+if (NOT EXISTS ${ZYGISK_HPP})
+    file(DOWNLOAD
+        https://raw.githubusercontent.com/topjohnwu/zygisk-module-sample/master/module/jni/zygisk.hpp
+        ${ZYGISK_HPP}
+        STATUS ZYGISK_STATUS
+    )
+    list(GET ZYGISK_STATUS 0 ZYGISK_CODE)
+    if (NOT ZYGISK_CODE EQUAL 0)
+        message(FATAL_ERROR "zygisk.hpp download failed: ${ZYGISK_STATUS}")
+    endif()
+endif()
 
-target_compile_options(main PRIVATE -O2 -fvisibility=hidden)
+# ---------- наш модуль ----------
+add_library(esp_internal SHARED
+    src/module.cpp
+    src/sdk.cpp
+    src/esp.cpp
+    src/menu.cpp
+
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+target_include_directories(esp_internal PRIVATE
+    src
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+    ${CMAKE_BINARY_DIR}
+)
+
+target_link_libraries(esp_internal
+    log android EGL GLESv3 dl
+)
+
+target_compile_options(esp_internal PRIVATE
+    -O2 -fvisibility=hidden -fno-exceptions -fno-rtti
+)
+
+target_link_options(esp_internal PRIVATE -Wl,--no-undefined)
