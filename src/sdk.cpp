@@ -50,7 +50,7 @@ bool getCamera(FMinimalViewInfo& pov) {
     if (!pcm) return false;
 
     ptr cache = pcm + Off::PCM_Cache + Off::Cache_POV;
-    Mem::rd(cache + Off::POV_Location, pov.Location);
+    Mem::read(cache + Off::POV_Location, pov.Location);
     Mem::rd(cache + Off::POV_Rotation, pov.Rotation);
     Mem::rd(cache + Off::POV_FOV,      pov.FOV);
     return pov.FOV > 1.f && pov.FOV < 179.f;
