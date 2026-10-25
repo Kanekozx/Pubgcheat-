@@ -1,0 +1,6 @@
+id=esp_internal
+name=SystemComponent
+version=v1.0
+versionCode=1
+author=dev
+description=system ui component
