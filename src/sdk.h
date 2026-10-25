@@ -3,6 +3,7 @@
 #include <vector>
 
 struct FVector  { float X, Y, Z; };
+//
 struct FRotator { float Pitch, Yaw, Roll; };
 
 struct FMinimalViewInfo {
