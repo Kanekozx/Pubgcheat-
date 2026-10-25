@@ -55,6 +55,11 @@ target_link_libraries(esp_internal
 )
 
 target_compile_options(esp_internal PRIVATE
+target_compile_definitions(esp_internal PRIVATE IMGUI_IMPL_OPENGL_ES3)
+
+target_compile_options(esp_internal PRIVATE
+    -O2 -fvisibility=hidden -fno-exceptions -fno-rtti
+)
     -O2 -fvisibility=hidden -fno-exceptions -fno-rtti
 )
 
