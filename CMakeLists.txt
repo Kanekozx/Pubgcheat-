@@ -10,7 +10,7 @@ include(FetchContent)
 FetchContent_Declare(
     xhook
     GIT_REPOSITORY https://github.com/iqiyi/xHook.git
-    GIT_TAG        v1.2.2
+    GIT_TAG        v1.2.0
 )
 FetchContent_MakeAvailable(xhook)
 
