@@ -26,8 +26,9 @@ inline void install() {
     sigaction(SIGBUS,  &sa, nullptr);
 }
 
+// --- reference-форма: read(addr, out) ---
 template<typename T>
-inline bool rd(uintptr_t addr, T& out) {
+inline bool read(uintptr_t addr, T& out) {
     if (!addr) return false;
     if (sigsetjmp(g_jmp, 1) == 0) {
         g_active = 1;
@@ -38,10 +39,11 @@ inline bool rd(uintptr_t addr, T& out) {
     return false;
 }
 
+// --- value-форма: rd<T>(addr, def) ---
 template<typename T>
 inline T rd(uintptr_t addr, T def = T{}) {
     T v = def;
-    rd(addr, v);
+    read(addr, v);
     return v;
 }
 
