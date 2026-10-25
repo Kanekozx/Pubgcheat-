@@ -1,7 +1,7 @@
 #pragma once
 
 struct Config {
-    bool  menuOpen  = false;   // false → меню скрыто, ESP работает
+    bool  menuOpen  = true;   
     bool  enabled   = true;
     bool  box       = true;
     bool  health    = true;
