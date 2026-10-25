@@ -1,4 +1,4 @@
-#include <sys/types.h>   // ← вот это, ПЕРВОЙ строкой
+#include <sys/types.h>
 #include "zygisk.hpp"
 #include "memory.h"
 #include "sdk.h"
@@ -19,7 +19,9 @@
 #include <string>
 #include <cstring>
 
-// ---------- хуки ----------
+// ============================================================
+//  Хуки
+// ============================================================
 static EGLBoolean (*origSwap)(EGLDisplay, EGLSurface) = nullptr;
 static int32_t    (*origInputGetEvent)(AInputQueue*, AInputEvent**) = nullptr;
 
@@ -37,7 +39,6 @@ static void applyTouch(float x, float y, int action) {
 
 static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
     if (!g_imguiReady) {
-        // libUE4 грузится позже, чем postAppSpecialize — ждём
         if (!SDK::init()) return origSwap(dpy, surf);
 
         eglQuerySurface(dpy, surf, EGL_WIDTH,  &g_w);
@@ -117,7 +118,9 @@ static int32_t hookInput(AInputQueue* q, AInputEvent** out) {
     return r;
 }
 
-// ---------- Zygisk ----------
+// ============================================================
+//  Zygisk
+// ============================================================
 static const char* TARGETS[] = {
     "com.tencent.ig",
     "com.pubg.krmobile",
@@ -144,11 +147,15 @@ static void getModDevIno(const char* lib, dev_t& d, ino_t& i) {
 
 class EspModule : public zygisk::ModuleBase {
     zygisk::Api* api = nullptr;
+    JNIEnv*      env = nullptr;
+
 public:
-    void onLoad(zygisk::Api* a, JNIEnv*) override { api = a; }
+    void onLoad(zygisk::Api* a, JNIEnv* e) override {
+        api = a;
+        env = e;
+    }
 
     void preAppSpecialize(zygisk::AppSpecializeArgs* args) override {
-        JNIEnv* env = api->getEnv();
         const char* nn = env->GetStringUTFChars(args->nice_name, nullptr);
         g_pkg = nn ? nn : "";
         env->ReleaseStringUTFChars(args->nice_name, nn);
