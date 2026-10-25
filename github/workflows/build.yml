@@ -9,9 +9,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
     - name: Setup Android NDK
       run: |
@@ -19,7 +18,7 @@ jobs:
         unzip -q android-ndk-r26d-linux.zip
         echo "NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r26d" >> $GITHUB_ENV
 
-    - name: Download Dependencies
+    - name: Download Dependencies (ImGui + Dobby)
       run: |
         git clone --depth 1 https://github.com/jmpews/Dobby.git
         git clone --depth 1 https://github.com/ocornut/imgui.git
