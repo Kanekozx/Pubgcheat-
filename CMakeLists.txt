@@ -57,8 +57,13 @@ target_compile_options(esp_internal PRIVATE
     -O2 -fvisibility=hidden -fno-exceptions -fno-rtti
 )
 
-target_link_libraries(esp_internal
-    log android EGL GLESv3 dl
+# было
+target_link_libraries(esp_internal log android EGL GLESv3 dl)
+
+# станет — добавляем xhook
+add_subdirectory(xhook)  # или FetchContent_Declare
+target_link_libraries(esp_internal log android EGL GLESv3 dl xhook)
+target_compile_definitions(esp_internal PRIVATE PTRACE_MODE)
 )
 
 target_link_options(esp_internal PRIVATE -Wl,--no-undefined)
