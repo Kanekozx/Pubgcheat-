@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -O2 -s -Wno-unused-function")
 
-# --- xhook через FetchContent ---
 include(FetchContent)
 FetchContent_Declare(
     xhook
@@ -14,29 +13,38 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(xhook)
 
-# --- ImGui (как было у тебя) ---
-add_library(imgui STATIC
-    src/imgui/imgui.cpp
-    src/imgui/imgui_draw.cpp
-    src/imgui/imgui_tables.cpp
-    src/imgui/imgui_widgets.cpp
-    src/imgui/backends/imgui_impl_opengl3.cpp
+# --- ImGui ---
+set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/imgui")
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
 )
+# Явная проверка — сразу увидишь, чего не хватает
+foreach(f ${IMGUI_SOURCES})
+    if(NOT EXISTS "${f}")
+        message(FATAL_ERROR "imgui source missing: ${f}")
+    endif()
+endforeach()
+
+add_library(imgui STATIC ${IMGUI_SOURCES})
 target_include_directories(imgui PUBLIC
-    src/imgui
-    src/imgui/backends
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
 )
 
 # --- Модуль ---
 add_library(pubgcheat SHARED
-    module.cpp
+    src/module.cpp          # ← было module.cpp
     src/sdk.cpp
     src/menu.cpp
 )
 
 target_include_directories(pubgcheat PRIVATE
     src
-    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_compile_definitions(pubgcheat PRIVATE PTRACE_MODE)
@@ -51,7 +59,6 @@ target_link_libraries(pubgcheat
     dl
 )
 
-# Только arm64
 set_target_properties(pubgcheat PROPERTIES
     OUTPUT_NAME "pubgcheat"
     PREFIX "lib"
