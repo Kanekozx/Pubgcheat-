@@ -51,8 +51,8 @@ bool getCamera(FMinimalViewInfo& pov) {
 
     ptr cache = pcm + Off::PCM_Cache + Off::Cache_POV;
     Mem::read(cache + Off::POV_Location, pov.Location);
-    Mem::rd(cache + Off::POV_Rotation, pov.Rotation);
-    Mem::rd(cache + Off::POV_FOV,      pov.FOV);
+    Mem::read(cache + Off::POV_Rotation, pov.Rotation);
+    Mem::read(cache + Off::POV_FOV,      pov.FOV);
     return pov.FOV > 1.f && pov.FOV < 179.f;
 }
 
@@ -96,7 +96,7 @@ bool collectPlayers(std::vector<PlayerInfo>& out, int maxCount) {
         ptr root = Mem::rdPtr(actor + Off::Actor_RootComponent);
         if (!root) continue;
         FVector loc{};
-        if (!Mem::rd(root + Off::Scene_RelativeLocation, loc)) continue;
+        if (!Mem::read(root + Off::Scene_RelativeLocation, loc)) continue;
 
         float dx = loc.X - pov.Location.X;
         float dy = loc.Y - pov.Location.Y;
