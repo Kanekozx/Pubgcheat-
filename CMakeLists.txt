@@ -15,7 +15,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
-# ---------- zygisk.hpp (single header, скачиваем) ----------
+# ---------- zygisk.hpp ----------
 set(ZYGISK_HPP ${CMAKE_BINARY_DIR}/zygisk.hpp)
 if (NOT EXISTS ${ZYGISK_HPP})
     file(DOWNLOAD
@@ -35,7 +35,6 @@ add_library(esp_internal SHARED
     src/sdk.cpp
     src/esp.cpp
     src/menu.cpp
-
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
@@ -50,17 +49,16 @@ target_include_directories(esp_internal PRIVATE
     ${CMAKE_BINARY_DIR}
 )
 
+target_compile_definitions(esp_internal PRIVATE
+    IMGUI_IMPL_OPENGL_ES3
+)
+
+target_compile_options(esp_internal PRIVATE
+    -O2 -fvisibility=hidden -fno-exceptions -fno-rtti
+)
+
 target_link_libraries(esp_internal
     log android EGL GLESv3 dl
-)
-
-target_compile_options(esp_internal PRIVATE
-target_compile_definitions(esp_internal PRIVATE IMGUI_IMPL_OPENGL_ES3)
-
-target_compile_options(esp_internal PRIVATE
-    -O2 -fvisibility=hidden -fno-exceptions -fno-rtti
-)
-    -O2 -fvisibility=hidden -fno-exceptions -fno-rtti
 )
 
 target_link_options(esp_internal PRIVATE -Wl,--no-undefined)
