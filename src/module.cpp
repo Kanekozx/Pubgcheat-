@@ -1,6 +1,5 @@
 #include <jni.h>
 #include <android/log.h>
-#include <android/input.h>
 #include <dlfcn.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -12,14 +11,12 @@
 #define LOG_TAG "UE4"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
-// Объявления функций из menu.cpp
 void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h);
 void ImGuiBeginFrame();
 void DrawESP();
 void DrawMenu();
 void ImGuiRender();
 
-// === ОТРИСОВКА (OpenGL) ===
 using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
 static eglSwapBuffers_t origSwap = nullptr;
 
@@ -41,8 +38,7 @@ void DrawFrame(EGLDisplay dpy, EGLSurface surf) {
     
     if (inited) {
         ImGuiBeginFrame();
-        DrawESP();
-        DrawMenu();
+        DrawESP(); // Рисуем ESP
         ImGuiRender();
     }
 }
@@ -57,57 +53,19 @@ static EGLBoolean hookSwapDamage(EGLDisplay dpy, EGLSurface surf, EGLint* rects,
     return origSwapDamage(dpy, surf, rects, n_rects);
 }
 
-// === ТАЧ-ВВОД ===
-using AInputQueue_getEvent_t = int32_t (*)(AInputQueue* queue, AInputEvent** outEvent);
-static AInputQueue_getEvent_t orig_getEvent = nullptr;
-
-int32_t hook_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
-    int32_t ret = orig_getEvent(queue, outEvent);
-    
-    if (ret >= 0 && *outEvent) {
-        if (ImGui::GetCurrentContext() != nullptr) {
-            int32_t type = AInputEvent_getType(*outEvent);
-            if (type == AINPUT_EVENT_TYPE_MOTION) {
-                ImGuiIO& io = ImGui::GetIO();
-                
-                int32_t action = AMotionEvent_getAction(*outEvent);
-                int32_t maskedAction = action & AMOTION_EVENT_ACTION_MASK;
-                
-                float x = AMotionEvent_getX(*outEvent, 0);
-                float y = AMotionEvent_getY(*outEvent, 0);
-                
-                if (maskedAction == AMOTION_EVENT_ACTION_DOWN) {
-                    io.AddMousePosEvent(x, y);
-                    io.AddMouseButtonEvent(0, true);
-                } else if (maskedAction == AMOTION_EVENT_ACTION_MOVE) {
-                    io.AddMousePosEvent(x, y);
-                } else if (maskedAction == AMOTION_EVENT_ACTION_UP || maskedAction == AMOTION_EVENT_ACTION_CANCEL) {
-                    io.AddMousePosEvent(x, y);
-                    io.AddMouseButtonEvent(0, false);
-                }
-            }
-        }
-    }
-    return ret;
-}
-
-// === ПОТОК УСТАНОВКИ ХУКОВ ===
 void* SetupThread(void*) {
     LOGI(">>> Setting up hooks... <<<");
     sleep(3); 
     
-    // Хукаем libUE4.so (движок игры), так как вызовы идут оттуда
+    // Ставим хуки только на отрисовку
     int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
     int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
-    int r3 = xhook_register(".*libUE4.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
     
-    // На случай, если игра использует libEGL.so напрямую
     if (r1 != 0) xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
     if (r2 != 0) xhook_register(".*libEGL.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
-    if (r3 != 0) xhook_register(".*libandroid.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
 
     xhook_refresh(0);
-    LOGI("Hooks installed! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
+    LOGI("Hooks installed! (r1=%d, r2=%d)", r1, r2);
     
     return nullptr;
 }
