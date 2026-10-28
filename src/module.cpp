@@ -9,11 +9,10 @@
 #include <pthread.h>
 #include <xhook.h>
 
-#ifndef LOG
-#define LOG(...) __android_log_print(ANDROID_LOG_INFO, "PubgCheat", __VA_ARGS__)
-#endif
+#define LOG_TAG "PubgCheat"
+#define LOG(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
-// Объявляем функции из menu.cpp
+// Объявления функций из menu.cpp
 void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h);
 void DrawESP();
 void DrawMenu();
@@ -22,6 +21,7 @@ void ImGuiRender();
 using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
 static eglSwapBuffers_t origSwap = nullptr;
 
+// Наш хук на отрисовку
 static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
     static bool inited = false;
     
@@ -30,6 +30,7 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
         eglQuerySurface(dpy, surf, EGL_WIDTH, &_w);
         eglQuerySurface(dpy, surf, EGL_HEIGHT, &_h);
         
+        // Ждем, пока экран прогрузится
         if (_w > 0 && _h > 0) {
             LOG("Screen ready! W: %d, H: %d", _w, _h);
             ImGuiInit(dpy, surf, _w, _h);
@@ -39,6 +40,7 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
         }
     }
 
+    // Рисуем меню и ESP
     DrawESP();
     DrawMenu();
     ImGuiRender();
@@ -46,10 +48,10 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
     return origSwap(dpy, surf);
 }
 
-// Поток для установки хуков
+// Поток для установки хуков (чтобы не вешать игру)
 void* SetupThread(void*) {
-    sleep(3); // Ждем, пока игра чуть-чуть прогрузится
-    LOG("Setting up hooks via injector...");
+    sleep(3); // Ждем 3 секунды после инжекта
+    LOG(">>> Setting up hooks via injector... <<<");
     
     int r = xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
     if (r == 0) {
@@ -62,10 +64,10 @@ void* SetupThread(void*) {
     return nullptr;
 }
 
-// ВОТ ЭТА СТРОКА ЗАСТАВИТ БИБЛИОТЕКУ ЗАПУСТИТЬСЯ СРАЗУ ПОСЛЕ ИНЖЕКТА
+// ЭТА ФУНКЦИЯ ЗАПУСКАЕТСЯ СРАЗУ ПРИ ИНЖЕКТЕ
 __attribute__((constructor))
 void onLibraryLoaded() {
-    LOG(">>> Library injected via MT Manager/Termux! <<<");
+    LOG(">>> Library injected! Starting thread... <<<");
     pthread_t thread;
     pthread_create(&thread, nullptr, SetupThread, nullptr);
 }
