@@ -37,7 +37,9 @@ void DrawFrame(EGLDisplay dpy, EGLSurface surf) {
             ImGuiInit(dpy, surf, _w, _h);
             inited = true;
         }
-    } else {
+    }
+    
+    if (inited) {
         ImGuiBeginFrame();
         DrawESP();
         DrawMenu();
@@ -74,13 +76,13 @@ int32_t hook_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
                 float x = AMotionEvent_getX(*outEvent, 0);
                 float y = AMotionEvent_getY(*outEvent, 0);
                 
-                // Передаем позицию
-                io.AddMousePosEvent(x, y);
-                
-                // Нажатие и отпускание
                 if (maskedAction == AMOTION_EVENT_ACTION_DOWN) {
+                    io.AddMousePosEvent(x, y);
                     io.AddMouseButtonEvent(0, true);
+                } else if (maskedAction == AMOTION_EVENT_ACTION_MOVE) {
+                    io.AddMousePosEvent(x, y);
                 } else if (maskedAction == AMOTION_EVENT_ACTION_UP || maskedAction == AMOTION_EVENT_ACTION_CANCEL) {
+                    io.AddMousePosEvent(x, y);
                     io.AddMouseButtonEvent(0, false);
                 }
             }
@@ -94,17 +96,19 @@ void* SetupThread(void*) {
     LOGI(">>> Setting up hooks... <<<");
     sleep(3); 
     
-    // Ставим хуки только на нужные библиотеки
-    int r1 = xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    int r2 = xhook_register(".*libEGL.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
-    int r3 = xhook_register(".*libandroid.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
+    // Хукаем libUE4.so (движок игры), так как вызовы идут оттуда
+    int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
+    int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
+    int r3 = xhook_register(".*libUE4.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
     
-    if (r1 == 0 || r2 == 0 || r3 == 0) {
-        xhook_refresh(0);
-        LOGI("Hooks installed! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
-    } else {
-        LOGI("Hook FAILED!");
-    }
+    // На случай, если игра использует libEGL.so напрямую
+    if (r1 != 0) xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
+    if (r2 != 0) xhook_register(".*libEGL.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
+    if (r3 != 0) xhook_register(".*libandroid.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
+
+    xhook_refresh(0);
+    LOGI("Hooks installed! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
+    
     return nullptr;
 }
 
