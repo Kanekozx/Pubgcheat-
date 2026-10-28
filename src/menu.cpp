@@ -3,7 +3,6 @@
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
 
-// Флаги для меню
 bool bDrawESP = true;
 bool bDrawMenu = true;
 bool bDrawTestBox = true;
@@ -16,11 +15,11 @@ void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
     io.DisplaySize = ImVec2((float)w, (float)h);
     io.Fonts->AddFontDefault();
     
-    // === КРИТИЧЕСКИ ВАЖНО ДЛЯ ТЕЛЕФОНА ===
+    // Включаем поддержку тач-экрана
     io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen; 
-    io.MouseDrawCursor = true; // Рисуем точку, куда нажимаем
+    io.MouseDrawCursor = true; 
     
-    // === УВЕЛИЧИВАЕМ ИНТЕРФЕЙС ===
+    // Делаем интерфейс больше
     ImGui::GetStyle().ScaleAllSizes(2.0f); 
     io.FontGlobalScale = 1.5f;
 
@@ -37,7 +36,7 @@ void DrawESP() {
     
     ImGuiIO& io = ImGui::GetIO();
     
-    // ТЕСТОВЫЙ КВАДРАТ (чтобы было видно, что рисовка работает)
+    // Тестовый квадрат
     if (bDrawTestBox) {
         ImVec2 p1(io.DisplaySize.x / 2 - 100, io.DisplaySize.y / 2 - 200);
         ImVec2 p2(io.DisplaySize.x / 2 + 100, io.DisplaySize.y / 2 + 200);
@@ -49,8 +48,8 @@ void DrawESP() {
 
 void DrawMenu() {
     if (bDrawMenu) {
-        // Фиксируем размер окна, чтобы его было удобно таскать
-        ImGui::SetNextWindowSize(ImVec2(500, 300), ImGuiCond_FirstUseEver);
+        // Большое окно
+        ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
         
         ImGui::Begin("PUBG CHEAT", &bDrawMenu);
         
