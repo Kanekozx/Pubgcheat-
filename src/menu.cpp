@@ -14,7 +14,12 @@ void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
     io.DisplaySize = ImVec2((float)w, (float)h);
     io.Fonts->AddFontDefault();
     
-    // Увеличиваем шрифт, чтобы на телефоне было видно
+    // Включаем тач и рисуем курсор
+    io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
+    io.MouseDrawCursor = true;
+    
+    // Делаем шрифт и кнопки большими
+    ImGui::GetStyle().ScaleAllSizes(2.0f);
     io.FontGlobalScale = 1.5f;
 
     ImGui_ImplOpenGL3_Init("#version 300 es");
@@ -43,22 +48,18 @@ void DrawESP() {
 void DrawMenu() {
     if (!bDrawMenu) return;
 
-    // ЖЕСТКО ФИКСИРУЕМ ПОЗИЦИЮ (20 пикселей от левого и верхнего края)
-    ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Always);
-    // ЖЕСТКО ЗАДАЕМ РАЗМЕР ОКНА
-    ImGui::SetNextWindowSize(ImVec2(400, 250), ImGuiCond_Always);
+    // ЖЕСТКО в левый верхний угол
+    ImGui::SetNextWindowPos(ImVec2(20, 50), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(500, 300), ImGuiCond_Always);
     
-    // Запрещаем двигать, менять размер и сворачивать окно
+    // Запрещаем двигать и изменять размер
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
     
     ImGui::Begin("PUBG CHEAT", &bDrawMenu, flags);
     
     ImGui::Text("Menu is active!");
     ImGui::Spacing();
-    
-    // Галочки (они будут работать, если мы починим тач, но отрисовываться будут всегда)
     ImGui::Checkbox("Enable ESP", &bDrawESP);
-    
     ImGui::Spacing();
     
     if (ImGui::Button("Click Me!")) {
