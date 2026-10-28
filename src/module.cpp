@@ -86,4 +86,4 @@ void* SetupThread(void*) {
     return nullptr;
 }
 // Экспортируемая функция для инжектора
-extern "C" void main() {}
+extern "C" int main() { return 0; }
