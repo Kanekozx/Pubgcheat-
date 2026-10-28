@@ -5,6 +5,8 @@
 #include <cstring>
 #include <unistd.h>
 #include <sys/sysmacros.h>
+#include <android/log.h>
+#define LOG(...) __android_log_print(ANDROID_LOG_INFO, "PubgCheat", __VA_ARGS__)
 
 // Реализация zygisk::Api поверх xhook.
 // Zygisk-API использует (dev, ino) чтобы найти библиотеку,
