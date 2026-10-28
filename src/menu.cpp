@@ -1,91 +1,51 @@
-#include <jni.h>
-#include <android/log.h>
-#include <dlfcn.h>
 #include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <xhook.h>
+#include <android/log.h>
 #include "imgui.h"
+#include "imgui_impl_opengl3.h"
 
-#define LOG_TAG "UE4"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+bool bDrawESP = true;
 
-void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h);
-void ImGuiBeginFrame();
-void DrawESP();
-void ImGuiRender();
-
-using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
-static eglSwapBuffers_t origSwap = nullptr;
-
-using eglSwapBuffersWithDamageKHR_t = EGLBoolean(*)(EGLDisplay, EGLSurface, EGLint*, EGLint);
-static eglSwapBuffersWithDamageKHR_t origSwapDamage = nullptr;
-
-void DrawFrame(EGLDisplay dpy, EGLSurface surf) {
-    // Если экран пустой (игра еще грузится), ничего не делаем
-    if (dpy == nullptr || surf == nullptr) return;
-
-    static bool inited = false;
-    static int last_w = 0, last_h = 0;
+void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
     
-    EGLint w = 0, h = 0;
-    eglQuerySurface(dpy, surf, EGL_WIDTH, &w);
-    eglQuerySurface(dpy, surf, EGL_HEIGHT, &h);
-    
-    // Если размер экрана 0x0, пропускаем кадр
-    if (w <= 0 || h <= 0) return;
+    io.DisplaySize = ImVec2((float)w, (float)h);
+    io.Fonts->AddFontDefault();
+    io.FontGlobalScale = 1.2f;
 
-    // Если это первый запуск или экран изменил размер (растяг/поворот)
-    if (!inited || w != last_w || h != last_h) {
-        LOGI("ImGui Init/Resize: %dx%d", w, h);
-        if (!inited) {
-            ImGuiInit(dpy, surf, w, h);
-            inited = true;
-        } else {
-            // Обновляем размер экрана в ImGui
-            ImGui::GetIO().DisplaySize = ImVec2((float)w, (float)h);
-        }
-        last_w = w;
-        last_h = h;
-    }
-    
-    // Отрисовка
-    ImGuiBeginFrame();
-    DrawESP();
-    ImGuiRender();
+    ImGui_ImplOpenGL3_Init("#version 300 es");
 }
 
-static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
-    DrawFrame(dpy, surf);
-    return origSwap(dpy, surf);
+void ImGuiBeginFrame() {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui::NewFrame();
 }
 
-static EGLBoolean hookSwapDamage(EGLDisplay dpy, EGLSurface surf, EGLint* rects, EGLint n_rects) {
-    DrawFrame(dpy, surf);
-    return origSwapDamage(dpy, surf, rects, n_rects);
-}
-
-void* SetupThread(void*) {
-    LOGI(">>> Setting up hooks... <<<");
+void DrawESP() {
+    if (!bDrawESP) return;
     
-    // Ставим хуки моментально, не ждем 10 секунд
-    int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
-    int r3 = xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    int r4 = xhook_register(".*libEGL.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
+    ImGuiIO& io = ImGui::GetIO();
+    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
     
-    xhook_refresh(0);
-    
-    LOGI("Hooks installed! (r1=%d, r2=%d, r3=%d, r4=%d)", r1, r2, r3, r4);
-    return nullptr;
+    float centerX = io.DisplaySize.x / 2.0f;
+    float centerY = io.DisplaySize.y / 2.0f;
+
+    // ТЕСТОВЫЕ БОКСЫ (Auto-ESP)
+    // Игрок 1 (Слева)
+    drawList->AddRect(ImVec2(centerX - 400, centerY - 200), ImVec2(centerX - 300, centerY + 100), IM_COL32(255, 0, 0, 255), 0.0f, 0, 3.0f);
+    drawList->AddText(ImVec2(centerX - 400, centerY - 230), IM_COL32(255, 255, 255, 255), "Enemy [50m]");
+
+    // Игрок 2 (По центру)
+    drawList->AddRect(ImVec2(centerX - 50, centerY - 150), ImVec2(centerX + 50, centerY + 150), IM_COL32(255, 0, 0, 255), 0.0f, 0, 3.0f);
+    drawList->AddText(ImVec2(centerX - 50, centerY - 180), IM_COL32(255, 255, 255, 255), "Enemy [10m]");
+
+    // Игрок 3 (Справа)
+    drawList->AddRect(ImVec2(centerX + 300, centerY - 100), ImVec2(centerX + 400, centerY + 200), IM_COL32(255, 0, 0, 255), 0.0f, 0, 3.0f);
+    drawList->AddText(ImVec2(centerX + 300, centerY - 130), IM_COL32(255, 255, 255, 255), "Enemy [80m]");
 }
 
-__attribute__((constructor))
-void onLibraryLoaded() {
-    LOGI(">>> Library injected! <<<");
-    pthread_t thread;
-    pthread_create(&thread, nullptr, SetupThread, nullptr);
+void ImGuiRender() {
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
-
-extern "C" int main() { return 0; }
