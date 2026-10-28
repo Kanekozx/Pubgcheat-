@@ -25,4 +25,16 @@ namespace Off {
     constexpr uint64_t Char_Health = 0xE60;
     constexpr uint64_t Char_bDead = 0xE7C;
     constexpr uint64_t Char_PlayerKey = 0x980;
+
+// --- Оффсеты для камеры (Аимбот) ---
+constexpr uint64_t PC_PlayerCameraManager = 0x448; // Может отличаться для 4.6.0!
+constexpr uint64_t PCM_Cache = 0x1A30;
+constexpr uint64_t Cache_POV = 0x10;
+constexpr uint64_t POV_Location = 0x10;
+constexpr uint64_t POV_Rotation = 0x1C;
+constexpr uint64_t POV_FOV = 0x24;
+constexpr uint64_t PC_AcknowledgedPawn = 0x450;
+
+// Если в sdk.cpp используется LocalPlayerPtr (а не LocalPlayer_PC)
+constexpr uint64_t LocalPlayerPtr = 0x0; // Заглушка, если выдает ошибку
 }
