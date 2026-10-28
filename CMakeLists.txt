@@ -45,6 +45,7 @@ add_library(pubgcheat SHARED
 target_include_directories(pubgcheat PRIVATE
     src
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${xhook_SOURCE_DIR}/libxhook/jni  
 )
 
 target_compile_definitions(pubgcheat PRIVATE PTRACE_MODE)
