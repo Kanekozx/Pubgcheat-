@@ -11,19 +11,14 @@
 #include <xhook.h>
 #include "imgui.h"
 
+#define LOG_TAG "UE4"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
 void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h);
 void ImGuiBeginFrame();
 void DrawESP();
 void DrawMenu();
 void ImGuiRender();
-
-void log_to_file(const char* msg) {
-    FILE* f = fopen("/data/local/tmp/cheat_log.txt", "a");
-    if (f) {
-        fprintf(f, "%s\n", msg);
-        fclose(f);
-    }
-}
 
 // === ХУК НА ОТРИСОВКУ ===
 using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
@@ -36,6 +31,7 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
         eglQuerySurface(dpy, surf, EGL_WIDTH, &_w);
         eglQuerySurface(dpy, surf, EGL_HEIGHT, &_h);
         if (_w > 0 && _h > 0) {
+            LOGI("ImGui Initialized: %dx%d", _w, _h);
             ImGuiInit(dpy, surf, _w, _h);
             inited = true;
         } else {
@@ -49,7 +45,7 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
     return origSwap(dpy, surf);
 }
 
-// === ХУК НА ТАЧ (ВРУЧНУЮ) ===
+// === ХУК НА ТАЧ ===
 using AInputQueue_getEvent_t = int32_t (*)(AInputQueue* queue, AInputEvent** outEvent);
 static AInputQueue_getEvent_t orig_getEvent = nullptr;
 
@@ -65,6 +61,7 @@ int32_t hook_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
             float y = AMotionEvent_getY(*outEvent, 0);
             
             io.MousePos = ImVec2(x, y);
+            
             if (action == AMOTION_EVENT_ACTION_DOWN) {
                 io.MouseDown[0] = true;
             } else if (action == AMOTION_EVENT_ACTION_UP || action == AMOTION_EVENT_ACTION_CANCEL) {
@@ -77,26 +74,23 @@ int32_t hook_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
 
 // === ПОТОК ХУКОВ ===
 void* SetupThread(void*) {
-    log_to_file(">>> Thread started! <<<");
-    sleep(5); // Ждем загрузки игры
+    LOGI(">>> Setting up hooks... <<<");
+    sleep(5); 
     
-    char buf[128];
     int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    sprintf(buf, "eglSwapBuffers hook: %d", r1); log_to_file(buf);
-
+    int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwap, (void**)&origSwap);
     int r3 = xhook_register(".*libandroid.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
-    sprintf(buf, "AInputQueue_getEvent hook: %d", r3); log_to_file(buf);
     
-    if (r1 == 0 || r3 == 0) {
+    if (r1 == 0 || r2 == 0 || r3 == 0) {
         xhook_refresh(0);
-        log_to_file("xhook_refresh success!");
+        LOGI("Hooks installed! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
     }
     return nullptr;
 }
 
 __attribute__((constructor))
 void onLibraryLoaded() {
-    log_to_file(">>> Library injected! <<<");
+    LOGI(">>> Library injected! <<<");
     pthread_t thread;
     pthread_create(&thread, nullptr, SetupThread, nullptr);
 }
