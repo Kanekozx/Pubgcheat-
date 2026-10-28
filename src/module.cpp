@@ -11,6 +11,8 @@
 #include "src/offsets.h"
 #include <xhook.h>
 #include <cmath>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 // Оффсет из свежего SDK
 #define SHOOT_BULLET_OFFSET 0x6FF841C
