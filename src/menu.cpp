@@ -12,6 +12,7 @@ void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
     ImGuiIO& io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)w, (float)h);
     io.Fonts->AddFontDefault();
+    io.MouseDrawCursor = true; // Включаем курсор
     
     ImGui_ImplOpenGL3_Init("#version 300 es");
 }
