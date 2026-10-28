@@ -17,7 +17,7 @@ FetchContent_Declare(
 FetchContent_GetProperties(xhook)
 if(NOT xhook_POPULATED)
     FetchContent_Populate(xhook)
-    add_subdirectory(${xhook_SOURCE_DIR} ${xhook_BINARY_DIR})
+    add_subdirectory(${xhook_SOURCE_DIR}/libxhook/jni ${xhook_BINARY_DIR})
 endif()
 
 # --- ImGui ---
