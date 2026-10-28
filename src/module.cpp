@@ -9,6 +9,8 @@
 #include <pthread.h>
 #include <xhook.h>
 #include <stdio.h>
+#include <android/input.h>
+#include "imgui_impl_android.h"
 
 // Логи пишем в файл, так как KernelSU прячет logcat
 void log_to_file(const char* msg) {
