@@ -17,7 +17,7 @@ void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
     io.Fonts->AddFontDefault();
     
     // === КРИТИЧЕСКИ ВАЖНО ДЛЯ ТЕЛЕФОНА ===
-    io.ConfigFlags |= ImGuiConfigFlags_IsTouchDevice; // Включаем режим тача
+    io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen; 
     io.MouseDrawCursor = true; // Рисуем точку, куда нажимаем
     
     // === УВЕЛИЧИВАЕМ ИНТЕРФЕЙС ===
