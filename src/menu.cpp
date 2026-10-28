@@ -2,6 +2,7 @@
 #include <android/log.h>
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
+#include "sdk.h"
 
 bool bDrawESP = true;
 bool bDrawMenu = true;
