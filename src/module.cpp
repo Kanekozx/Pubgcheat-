@@ -20,11 +20,15 @@ void DrawESP();
 void DrawMenu();
 void ImGuiRender();
 
-// === ХУК НА ОТРИСОВКУ ===
+// === ХУКИ НА ОТРИСОВКУ ===
 using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
 static eglSwapBuffers_t origSwap = nullptr;
 
-static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
+using eglSwapBuffersWithDamageKHR_t = EGLBoolean(*)(EGLDisplay, EGLSurface, EGLint*, EGLint);
+static eglSwapBuffersWithDamageKHR_t origSwapDamage = nullptr;
+
+// Общая функция для инициализации и отрисовки кадра
+void DrawFrame(EGLDisplay dpy, EGLSurface surf) {
     static bool inited = false;
     if (!inited) {
         EGLint _w = 0, _h = 0;
@@ -34,15 +38,23 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
             LOGI("ImGui Initialized: %dx%d", _w, _h);
             ImGuiInit(dpy, surf, _w, _h);
             inited = true;
-        } else {
-            return origSwap(dpy, surf);
         }
+    } else {
+        ImGuiBeginFrame();
+        DrawESP();
+        DrawMenu();
+        ImGuiRender();
     }
-    ImGuiBeginFrame();
-    DrawESP();
-    DrawMenu();
-    ImGuiRender();
+}
+
+static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
+    DrawFrame(dpy, surf);
     return origSwap(dpy, surf);
+}
+
+static EGLBoolean hookSwapDamage(EGLDisplay dpy, EGLSurface surf, EGLint* rects, EGLint n_rects) {
+    DrawFrame(dpy, surf);
+    return origSwapDamage(dpy, surf, rects, n_rects);
 }
 
 // === ХУК НА ТАЧ ===
@@ -51,7 +63,6 @@ static AInputQueue_getEvent_t orig_getEvent = nullptr;
 
 int32_t hook_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
     int32_t ret = orig_getEvent(queue, outEvent);
-    
     if (ret >= 0 && *outEvent) {
         int32_t type = AInputEvent_getType(*outEvent);
         if (type == AINPUT_EVENT_TYPE_MOTION) {
@@ -61,7 +72,6 @@ int32_t hook_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
             float y = AMotionEvent_getY(*outEvent, 0);
             
             io.MousePos = ImVec2(x, y);
-            
             if (action == AMOTION_EVENT_ACTION_DOWN) {
                 io.MouseDown[0] = true;
             } else if (action == AMOTION_EVENT_ACTION_UP || action == AMOTION_EVENT_ACTION_CANCEL) {
@@ -78,12 +88,14 @@ void* SetupThread(void*) {
     sleep(5); 
     
     int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwap, (void**)&origSwap);
+    int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
     int r3 = xhook_register(".*libandroid.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
     
     if (r1 == 0 || r2 == 0 || r3 == 0) {
         xhook_refresh(0);
-        LOGI("Hooks installed! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
+        LOGI("Hooks installed successfully! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
+    } else {
+        LOGI("Hook registration failed! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
     }
     return nullptr;
 }
