@@ -2,6 +2,7 @@
 #include <android/log.h>
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
+#include "imgui_impl_android.h" // <--- Добавь это
 
 bool bDrawESP = true;
 bool bDrawMenu = true;
@@ -14,7 +15,7 @@ void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
     io.Fonts->AddFontDefault();
     
     ImGui_ImplOpenGL3_Init("#version 300 es");
-    __android_log_print(ANDROID_LOG_INFO, "PubgCheat", "ImGui Init OK");
+    ImGui_ImplAndroid_Init(); // <--- Инициализация ввода
 }
 
 // Новая функция для начала кадра
