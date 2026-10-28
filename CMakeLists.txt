@@ -13,6 +13,29 @@ FetchContent_Declare(
     GIT_TAG        v1.2.0
 )
 
+FetchContent_GetProperties(xhook)
+if(NOT xhook_POPULATED)
+    FetchContent_Populate(xhook)
+endif()
+
+# Собираем xhook вручную из исходников, так как в репозитории нет CMakeLists.txt
+add_library(xhook SHARED
+    ${xhook_SOURCE_DIR}/libxhook/jni/xh_core.c
+    ${xhook_SOURCE_DIR}/libxhook/jni/xh_elf.c
+    ${xhook_SOURCE_DIR}/libxhook/jni/xh_jni.c
+    ${xhook_SOURCE_DIR}/libxhook/jni/xh_log.c
+    ${xhook_SOURCE_DIR}/libxhook/jni/xh_util.c
+    ${xhook_SOURCE_DIR}/libxhook/jni/xh_version.c
+    ${xhook_SOURCE_DIR}/libxhook/jni/xhook.c
+)
+
+target_include_directories(xhook PUBLIC
+    ${xhook_SOURCE_DIR}/libxhook/jni
+)
+
+# xhook использует Android-логи
+target_link_libraries(xhook log)
+
 # Явно указываем CMake, что библиотеку нужно собрать
 FetchContent_GetProperties(xhook)
 if(NOT xhook_POPULATED)
