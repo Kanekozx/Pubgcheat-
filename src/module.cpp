@@ -11,10 +11,10 @@
 #define LOG_TAG "UE4"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
+// Объявления функций из menu.cpp
 void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h);
 void ImGuiBeginFrame();
 void DrawESP();
-void DrawMenu();
 void ImGuiRender();
 
 using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
@@ -24,23 +24,32 @@ using eglSwapBuffersWithDamageKHR_t = EGLBoolean(*)(EGLDisplay, EGLSurface, EGLi
 static eglSwapBuffersWithDamageKHR_t origSwapDamage = nullptr;
 
 void DrawFrame(EGLDisplay dpy, EGLSurface surf) {
+    if (dpy == nullptr || surf == nullptr) return;
+
     static bool inited = false;
-    if (!inited) {
-        EGLint _w = 0, _h = 0;
-        eglQuerySurface(dpy, surf, EGL_WIDTH, &_w);
-        eglQuerySurface(dpy, surf, EGL_HEIGHT, &_h);
-        if (_w > 0 && _h > 0) {
-            LOGI("ImGui Initialized: %dx%d", _w, _h);
-            ImGuiInit(dpy, surf, _w, _h);
+    static int last_w = 0, last_h = 0;
+    
+    EGLint w = 0, h = 0;
+    eglQuerySurface(dpy, surf, EGL_WIDTH, &w);
+    eglQuerySurface(dpy, surf, EGL_HEIGHT, &h);
+    
+    if (w <= 0 || h <= 0) return;
+
+    if (!inited || w != last_w || h != last_h) {
+        LOGI("ImGui Init/Resize: %dx%d", w, h);
+        if (!inited) {
+            ImGuiInit(dpy, surf, w, h);
             inited = true;
+        } else {
+            ImGui::GetIO().DisplaySize = ImVec2((float)w, (float)h);
         }
+        last_w = w;
+        last_h = h;
     }
     
-    if (inited) {
-        ImGuiBeginFrame();
-        DrawESP(); // Рисуем ESP
-        ImGuiRender();
-    }
+    ImGuiBeginFrame();
+    DrawESP();
+    ImGuiRender();
 }
 
 static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
@@ -55,18 +64,15 @@ static EGLBoolean hookSwapDamage(EGLDisplay dpy, EGLSurface surf, EGLint* rects,
 
 void* SetupThread(void*) {
     LOGI(">>> Setting up hooks... <<<");
-    sleep(3); 
     
-    // Ставим хуки только на отрисовку
-    int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
+    // Мгновенная установка хуков на EGL и UE4
+    xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
+    xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
+    xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
+    xhook_register(".*libEGL.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
     
-    if (r1 != 0) xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    if (r2 != 0) xhook_register(".*libEGL.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
-
     xhook_refresh(0);
-    LOGI("Hooks installed! (r1=%d, r2=%d)", r1, r2);
-    
+    LOGI("Hooks installed!");
     return nullptr;
 }
 
