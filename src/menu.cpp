@@ -14,11 +14,7 @@ void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
     io.DisplaySize = ImVec2((float)w, (float)h);
     io.Fonts->AddFontDefault();
     
-    // Включаем режим сенсорного экрана (ОЧЕНЬ ВАЖНО!)
-    io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
-    
-    // Делаем интерфейс крупнее для пальцев
-    ImGui::GetStyle().ScaleAllSizes(2.0f);
+    // Увеличиваем шрифт, чтобы на телефоне было видно
     io.FontGlobalScale = 1.5f;
 
     ImGui_ImplOpenGL3_Init("#version 300 es");
@@ -40,33 +36,32 @@ void DrawESP() {
 
     // ТЕСТОВЫЕ БОКСЫ (Auto-ESP)
     drawList->AddRect(ImVec2(centerX - 400, centerY - 200), ImVec2(centerX - 300, centerY + 100), IM_COL32(255, 0, 0, 255), 0.0f, 0, 3.0f);
-    drawList->AddText(ImVec2(centerX - 400, centerY - 230), IM_COL32(255, 255, 255, 255), "Enemy [50m]");
-
     drawList->AddRect(ImVec2(centerX - 50, centerY - 150), ImVec2(centerX + 50, centerY + 150), IM_COL32(255, 0, 0, 255), 0.0f, 0, 3.0f);
-    drawList->AddText(ImVec2(centerX - 50, centerY - 180), IM_COL32(255, 255, 255, 255), "Enemy [10m]");
-
     drawList->AddRect(ImVec2(centerX + 300, centerY - 100), ImVec2(centerX + 400, centerY + 200), IM_COL32(255, 0, 0, 255), 0.0f, 0, 3.0f);
-    drawList->AddText(ImVec2(centerX + 300, centerY - 130), IM_COL32(255, 255, 255, 255), "Enemy [80m]");
 }
 
 void DrawMenu() {
     if (!bDrawMenu) return;
 
-    // Задаем стартовый размер и позицию
-    ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
+    // ЖЕСТКО ФИКСИРУЕМ ПОЗИЦИЮ (20 пикселей от левого и верхнего края)
+    ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Always);
+    // ЖЕСТКО ЗАДАЕМ РАЗМЕР ОКНА
+    ImGui::SetNextWindowSize(ImVec2(400, 250), ImGuiCond_Always);
     
-    ImGui::Begin("PUBG CHEAT", &bDrawMenu);
+    // Запрещаем двигать, менять размер и сворачивать окно
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
     
-    ImGui::Text("Welcome to my cheat!");
+    ImGui::Begin("PUBG CHEAT", &bDrawMenu, flags);
+    
+    ImGui::Text("Menu is active!");
     ImGui::Spacing();
     
-    // Чекбоксы (теперь они будут нажиматься)
+    // Галочки (они будут работать, если мы починим тач, но отрисовываться будут всегда)
     ImGui::Checkbox("Enable ESP", &bDrawESP);
     
     ImGui::Spacing();
     
-    if (ImGui::Button("Test Button")) {
+    if (ImGui::Button("Click Me!")) {
         __android_log_print(ANDROID_LOG_INFO, "UE4", "Button clicked!");
     }
 
