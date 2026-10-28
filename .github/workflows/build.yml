@@ -32,18 +32,19 @@ jobs:
       - name: Build
         run: cmake --build build -j8
 
-      - name: Package Magisk zip
+      - name: Package Magisk/KSU zip
         run: |
           mkdir -p out/zygisk out/META-INF/com/google/android
           cp module.prop customize.sh out/
           cp META-INF/com/google/android/update-binary out/META-INF/com/google/android/
-          cp build/libesp_internal.so out/zygisk/arm64-v8a.so
-          cd out && zip -r ../esp-internal.zip . && cd ..
-          ls -la esp-internal.zip
+          # ВОТ ЗДЕСЬ ИСПРАВЛЕНИЕ: копируем libpubgcheat.so
+          cp build/libpubgcheat.so out/zygisk/arm64-v8a.so
+          cd out && zip -r ../pubgcheat.zip . && cd ..
+          ls -la pubgcheat.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: esp-internal
-          path: esp-internal.zip
+          name: pubgcheat-zip
+          path: pubgcheat.zip
           retention-days: 30
