@@ -12,7 +12,14 @@
 #include <xhook.h>
 #include <cmath>
 #include <EGL/egl.h>
-#include <EGL/eglext.h>
+#include <EGL/eglext.h
+#include <dlfcn.h>
+#include <sys/stat.h>
+// Объявления функций из menu.cpp / sdk.cpp
+void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h); // <-- Проверь аргументы, возможно просто (int w, int h)
+void DrawESP();
+void DrawMenu();
+void ImGuiRender();
 
 // Оффсет из свежего SDK
 #define SHOOT_BULLET_OFFSET 0x6FF841C
