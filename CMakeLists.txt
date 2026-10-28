@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
-project(pubgcheat CXX)
+# ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Добавлен язык C
+project(pubgcheat C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -O2 -s -Wno-unused-function")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O2 -s")
 
 # --- xhook через FetchContent ---
 include(FetchContent)
@@ -18,8 +20,8 @@ if(NOT xhook_POPULATED)
     FetchContent_Populate(xhook)
 endif()
 
-# Собираем xhook вручную из исходников, так как в репозитории нет CMakeLists.txt
-add_library(xhook SHARED
+# Собираем xhook как STATIC библиотеку
+add_library(xhook STATIC
     ${xhook_SOURCE_DIR}/libxhook/jni/xh_core.c
     ${xhook_SOURCE_DIR}/libxhook/jni/xh_elf.c
     ${xhook_SOURCE_DIR}/libxhook/jni/xh_jni.c
@@ -32,16 +34,7 @@ add_library(xhook SHARED
 target_include_directories(xhook PUBLIC
     ${xhook_SOURCE_DIR}/libxhook/jni
 )
-
-# xhook использует Android-логи
 target_link_libraries(xhook log)
-
-# Явно указываем CMake, что библиотеку нужно собрать
-FetchContent_GetProperties(xhook)
-if(NOT xhook_POPULATED)
-    FetchContent_Populate(xhook)
-    add_subdirectory(${xhook_SOURCE_DIR}/libxhook/jni ${xhook_BINARY_DIR})
-endif()
 
 # --- ImGui ---
 set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/imgui")
@@ -67,7 +60,6 @@ add_library(pubgcheat SHARED
 target_include_directories(pubgcheat PRIVATE
     src
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${xhook_SOURCE_DIR}/libxhook/jni   # <--- Путь к xhook.h
 )
 
 target_compile_definitions(pubgcheat PRIVATE PTRACE_MODE)
