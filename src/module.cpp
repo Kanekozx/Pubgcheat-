@@ -87,15 +87,16 @@ void* SetupThread(void*) {
     LOGI(">>> Setting up hooks... <<<");
     sleep(5); 
     
-    int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
-    int r3 = xhook_register(".*libandroid.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
+    // ХУКАЕМ ВО ВСЕХ БИБЛИОТЕКАХ (.*\\.so$), чтобы точно поймать вызов
+    int r1 = xhook_register(".*\\.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
+    int r2 = xhook_register(".*\\.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
+    int r3 = xhook_register(".*\\.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
     
     if (r1 == 0 || r2 == 0 || r3 == 0) {
         xhook_refresh(0);
-        LOGI("Hooks installed successfully! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
+        LOGI("Hooks installed! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
     } else {
-        LOGI("Hook registration failed! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
+        LOGI("Hook FAILED! (r1=%d, r2=%d, r3=%d)", r1, r2, r3);
     }
     return nullptr;
 }
