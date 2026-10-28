@@ -9,7 +9,34 @@
 #include "src/sdk.h"
 #include "src/menu.h"
 #include "src/offsets.h"
+#include <xhook.h>
+#include <cmath>
 
+// Оффсет из свежего SDK
+#define SHOOT_BULLET_OFFSET 0x6FF841C
+
+// Указатель на оригинальную функцию
+void (*orig_ShootBulletInner)(void* _this, void* Target, void* StartLoc, void* Velocity, void* Params);
+
+// Наша функция-хук
+void hook_ShootBulletInner(void* _this, void* Target, void* StartLoc, void* Velocity, void* Params) {
+    // Если цель существует, можно скорректировать Velocity (вектор пули)
+    // ВАЖНО: Чтобы это сработало, тебе нужно через SDK получить координаты головы Target.
+    // Пример (псевдокод): 
+    // if (Target) { FVector head = SDK::getBoneLocation(Target, "head"); ... }
+    
+    // Вызываем оригинал, чтобы игра не крашнулась
+    orig_ShootBulletInner(_this, Target, StartLoc, Velocity, Params);
+}
+
+// Функция инициализации (вызови её в SDK::init() или в главном потоке)
+void InitBulletTrack() {
+    void* base = (void*)SDK::base(); // Твоя функция получения базы libUE4.so
+    void* targetAddr = (void*)((uintptr_t)base + SHOOT_BULLET_OFFSET);
+    
+    xhook_register(".*libUE4.so$", "ShootBulletInner", (void*)hook_ShootBulletInner, (void**)&orig_ShootBulletInner);
+    xhook_refresh(0);
+}
 // -------- Логирование (в logcat) --------
 #define LOG(fmt, ...) \
     do { char _b[512]; snprintf(_b, sizeof(_b), "[pubgcheat] " fmt, ##__VA_ARGS__); \
