@@ -9,28 +9,30 @@ bool bDrawMenu = true;
 void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    
-    // Устанавливаем размер экрана, чтобы меню не было размером 0x0
+    ImGuiIO& io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)w, (float)h);
+    io.Fonts->AddFontDefault();
     
     ImGui_ImplOpenGL3_Init("#version 300 es");
-    __android_log_print(ANDROID_LOG_INFO, "PubgCheat", "ImGui Initialized: %dx%d", w, h);
+    __android_log_print(ANDROID_LOG_INFO, "PubgCheat", "ImGui Init OK");
+}
+
+// Новая функция для начала кадра
+void ImGuiBeginFrame() {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui::NewFrame();
 }
 
 void DrawESP() {
     if (!bDrawESP) return;
-    // Тут будет код рисования
+    // Рисуем тестовую красную линию из левого верхнего угла в центр экрана
+    ImGui::GetBackgroundDrawList()->AddLine(ImVec2(100, 100), ImVec2(1000, 500), IM_COL32(255, 0, 0, 255), 5.0f);
 }
 
 void DrawMenu() {
-    // ЭТИ ДВЕ СТРОКИ ОБЯЗАТЕЛЬНЫ ДЛЯ РАБОТЫ!
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui::NewFrame();
-
     if (bDrawMenu) {
         ImGui::Begin("PUBG CHEAT", &bDrawMenu);
-        ImGui::Checkbox("Enable ESP", &bDrawESP);
+        ImGui::Checkbox("Enable ESP (Red Line)", &bDrawESP);
         ImGui::Text("My Custom Cheat is Working!");
         ImGui::End();
     }
