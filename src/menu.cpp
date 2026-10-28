@@ -2,7 +2,6 @@
 #include <android/log.h>
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
-#include "imgui_impl_android.h" // <--- Добавь это
 
 bool bDrawESP = true;
 bool bDrawMenu = true;
@@ -15,10 +14,8 @@ void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
     io.Fonts->AddFontDefault();
     
     ImGui_ImplOpenGL3_Init("#version 300 es");
-    ImGui_ImplAndroid_Init(); // <--- Инициализация ввода
 }
 
-// Новая функция для начала кадра
 void ImGuiBeginFrame() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui::NewFrame();
@@ -26,7 +23,6 @@ void ImGuiBeginFrame() {
 
 void DrawESP() {
     if (!bDrawESP) return;
-    // Рисуем тестовую красную линию из левого верхнего угла в центр экрана
     ImGui::GetBackgroundDrawList()->AddLine(ImVec2(100, 100), ImVec2(1000, 500), IM_COL32(255, 0, 0, 255), 5.0f);
 }
 
