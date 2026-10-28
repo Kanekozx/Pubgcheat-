@@ -1,22 +1,40 @@
-#include "menu.h"
-#include "config.h"
+#include <EGL/egl.h>
+#include <android/log.h>
+#include "imgui.h"
+#include "imgui_impl_opengl3.h"
 
-#include <imgui.h>
+// Здесь мы объявляем глобальные настройки чита
+bool bDrawESP = true;
+bool bDrawMenu = true;
 
-void drawMenu(int, int) {
-    if (!g_cfg.menuOpen) return;
+// Функция инициализации ImGui (вызывается из module.cpp)
+void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h) {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    
+    ImGui_ImplOpenGL3_Init("#version 300 es");
+    __android_log_print(ANDROID_LOG_INFO, "PubgCheat", "ImGui Initialized!");
+}
 
-    ImGui::SetNextWindowPos(ImVec2(60, 60), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(420, 420), ImGuiCond_FirstUseEver);
-    ImGui::Begin("ESP", nullptr, ImGuiWindowFlags_NoCollapse);
+// Отрисовка ESP (пока пустая заглушка)
+void DrawESP() {
+    if (!bDrawESP) return;
+    // Тут будет код рисования линий, боксов и т.д.
+}
 
-    ImGui::Checkbox("Enable",     &g_cfg.enabled);
-    ImGui::Checkbox("Box",        &g_cfg.box);
-    ImGui::Checkbox("Health",     &g_cfg.health);
-    ImGui::Checkbox("Distance",   &g_cfg.distance);
-    ImGui::Checkbox("Snaplines",  &g_cfg.snaplines);
-    ImGui::SliderFloat("Max dist", &g_cfg.maxDist, 100.f, 1500.f, "%.0f");
-    ImGui::ColorEdit3("Box color", g_cfg.boxColor);
-
+// Отрисовка самого меню
+void DrawMenu() {
+    if (!bDrawMenu) return;
+    
+    ImGui::Begin("PUBG CHEAT", &bDrawMenu);
+    ImGui::Checkbox("Enable ESP", &bDrawESP);
+    ImGui::Text("Welcome to my cheat!");
     ImGui::End();
+}
+
+// Рендер кадра ImGui
+void ImGuiRender() {
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
