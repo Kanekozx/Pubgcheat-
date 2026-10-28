@@ -48,26 +48,40 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
     return origSwap(dpy, surf);
 }
 
-// Поток для установки хуков (чтобы не вешать игру)
+// Поток для установки хуков
 void* SetupThread(void*) {
-    sleep(3); // Ждем 3 секунды после инжекта
-    LOG(">>> Setting up hooks via injector... <<<");
+    LOG("Waiting for libUE4.so to load...");
     
-    int r = xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    if (r == 0) {
-        LOG("xhook_register success!");
-    } else {
-        LOG("xhook_register failed: %d", r);
+    // Ждем, пока игра загрузит движок libUE4.so (до 20 секунд)
+    int retries = 0;
+    while (retries < 20) {
+        void* handle = dlopen("libUE4.so", RTLD_NOLOAD);
+        if (handle) {
+            dlclose(handle);
+            break; // Движок загружен, выходим из цикла
+        }
+        sleep(1);
+        retries++;
     }
     
-    xhook_refresh(0);
-    return nullptr;
-}
+    sleep(2); // Даем движку пару секунд, чтобы он начал рисовать
+    LOG(">>> Setting up hooks via injector... <<<");
+    
+    // ХУКАЕМ ВЫЗОВЫ ИЗ libUE4.so (движка игры)
+    int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
+    LOG("eglSwapBuffers hook: %d", r1);
 
-// ЭТА ФУНКЦИЯ ЗАПУСКАЕТСЯ СРАЗУ ПРИ ИНЖЕКТЕ
-__attribute__((constructor))
-void onLibraryLoaded() {
-    LOG(">>> Library injected! Starting thread... <<<");
-    pthread_t thread;
-    pthread_create(&thread, nullptr, SetupThread, nullptr);
+    // На случай, если движок использует расширенную версию функции
+    void* origSwapDamage = nullptr;
+    int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwap, (void**)&origSwapDamage);
+    LOG("eglSwapBuffersWithDamageKHR hook: %d", r2);
+    
+    if (r1 == 0 || r2 == 0) {
+        xhook_refresh(0);
+        LOG("xhook_refresh success!");
+    } else {
+        LOG("xhook_register FAILED!");
+    }
+    
+    return nullptr;
 }
