@@ -12,9 +12,11 @@
 #include <xhook.h>
 #include <cmath>
 #include <EGL/egl.h>
-#include <EGL/eglext.h
+#include <EGL/eglext.h>
 #include <dlfcn.h>
+#include <android/log.h>
 #include <sys/stat.h>
+
 // Объявления функций из menu.cpp / sdk.cpp
 void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h); // <-- Проверь аргументы, возможно просто (int w, int h)
 void DrawESP();
