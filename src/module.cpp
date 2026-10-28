@@ -8,11 +8,17 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <xhook.h>
+#include <stdio.h> // Для работы с файлами
 
-#define LOG_TAG "PubgCheat"
-#define LOG(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+// Функция записи логов в файл
+void log_to_file(const char* msg) {
+    FILE* f = fopen("/data/local/tmp/cheat_log.txt", "a");
+    if (f) {
+        fprintf(f, "%s\n", msg);
+        fclose(f);
+    }
+}
 
-// Объявления функций из menu.cpp
 void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h);
 void DrawESP();
 void DrawMenu();
@@ -21,7 +27,6 @@ void ImGuiRender();
 using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
 static eglSwapBuffers_t origSwap = nullptr;
 
-// Наш хук на отрисовку
 static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
     static bool inited = false;
     
@@ -30,9 +35,10 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
         eglQuerySurface(dpy, surf, EGL_WIDTH, &_w);
         eglQuerySurface(dpy, surf, EGL_HEIGHT, &_h);
         
-        // Ждем, пока экран прогрузится
         if (_w > 0 && _h > 0) {
-            LOG("Screen ready! W: %d, H: %d", _w, _h);
+            char buf[128];
+            sprintf(buf, "Screen ready! W: %d, H: %d", _w, _h);
+            log_to_file(buf);
             ImGuiInit(dpy, surf, _w, _h);
             inited = true;
         } else {
@@ -40,7 +46,6 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
         }
     }
 
-    // Рисуем меню и ESP
     DrawESP();
     DrawMenu();
     ImGuiRender();
@@ -48,42 +53,49 @@ static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
     return origSwap(dpy, surf);
 }
 
-// Поток для установки хуков
 void* SetupThread(void*) {
-    LOG("Waiting for libUE4.so to load...");
+    log_to_file(">>> Thread started! Waiting for libUE4.so... <<<");
     
-    // Ждем, пока игра загрузит движок libUE4.so (до 20 секунд)
+    // Ждем загрузки движка игры
     int retries = 0;
     while (retries < 20) {
         void* handle = dlopen("libUE4.so", RTLD_NOLOAD);
         if (handle) {
             dlclose(handle);
-            break; // Движок загружен, выходим из цикла
+            break; 
         }
         sleep(1);
         retries++;
     }
     
-    sleep(2); // Даем движку пару секунд, чтобы он начал рисовать
-    LOG(">>> Setting up hooks via injector... <<<");
+    sleep(2); 
+    log_to_file(">>> Setting up hooks... <<<");
     
-    // ХУКАЕМ ВЫЗОВЫ ИЗ libUE4.so (движка игры)
     int r1 = xhook_register(".*libUE4.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    LOG("eglSwapBuffers hook: %d", r1);
+    char buf[128];
+    sprintf(buf, "eglSwapBuffers hook: %d", r1);
+    log_to_file(buf);
 
-    // На случай, если движок использует расширенную версию функции
     void* origSwapDamage = nullptr;
     int r2 = xhook_register(".*libUE4.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwap, (void**)&origSwapDamage);
-    LOG("eglSwapBuffersWithDamageKHR hook: %d", r2);
+    sprintf(buf, "eglSwapBuffersWithDamageKHR hook: %d", r2);
+    log_to_file(buf);
     
     if (r1 == 0 || r2 == 0) {
         xhook_refresh(0);
-        LOG("xhook_refresh success!");
+        log_to_file("xhook_refresh success!");
     } else {
-        LOG("xhook_register FAILED!");
+        log_to_file("xhook_register FAILED!");
     }
     
     return nullptr;
 }
-// Экспортируемая функция для инжектора
+
+__attribute__((constructor))
+void onLibraryLoaded() {
+    log_to_file(">>> Library injected! <<<");
+    pthread_t thread;
+    pthread_create(&thread, nullptr, SetupThread, nullptr);
+}
+
 extern "C" int main() { return 0; }
