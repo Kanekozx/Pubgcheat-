@@ -5,57 +5,67 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <string.h>
-#include "xhook_api.h"
+#include <unistd.h>
+#include <pthread.h>
+#include <xhook.h>
 
-// Объявляем функции из menu.cpp, чтобы компилятор не ругался
+#ifndef LOG
+#define LOG(...) __android_log_print(ANDROID_LOG_INFO, "PubgCheat", __VA_ARGS__)
+#endif
+
+// Объявляем функции из menu.cpp
 void ImGuiInit(EGLDisplay dpy, EGLSurface surf, int w, int h);
 void DrawESP();
 void DrawMenu();
 void ImGuiRender();
 
-// Указатель на оригинальную функцию eglSwapBuffers
 using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
 static eglSwapBuffers_t origSwap = nullptr;
 
-// Наш хук на отрисовку
 static EGLBoolean hookSwap(EGLDisplay dpy, EGLSurface surf) {
     static bool inited = false;
     
-    // Инициализируем ImGui при первом кадре
     if (!inited) {
         EGLint _w = 0, _h = 0;
         eglQuerySurface(dpy, surf, EGL_WIDTH, &_w);
         eglQuerySurface(dpy, surf, EGL_HEIGHT, &_h);
         
-        ImGuiInit(dpy, surf, _w, _h);
-        inited = true;
+        if (_w > 0 && _h > 0) {
+            LOG("Screen ready! W: %d, H: %d", _w, _h);
+            ImGuiInit(dpy, surf, _w, _h);
+            inited = true;
+        } else {
+            return origSwap(dpy, surf);
+        }
     }
 
-    // Рисуем наш чит поверх игры
     DrawESP();
     DrawMenu();
     ImGuiRender();
 
-    // Вызываем оригинальную функцию, чтобы игра работала дальше
     return origSwap(dpy, surf);
 }
 
-// Функция, которую вызывает xhook_api.h
-void SetupHooks() {
-    LOG("Setting up hooks...");
+// Поток для установки хуков
+void* SetupThread(void*) {
+    sleep(3); // Ждем, пока игра чуть-чуть прогрузится
+    LOG("Setting up hooks via injector...");
     
-    // Регистрируем хук на eglSwapBuffers в libEGL.so
     int r = xhook_register(".*libEGL.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
-    if (r != 0) {
+    if (r == 0) {
+        LOG("xhook_register success!");
+    } else {
         LOG("xhook_register failed: %d", r);
     }
     
-    // Применяем хуки
-    r = xhook_refresh(0);
-    if (r != 0) {
-        LOG("xhook_refresh failed: %d", r);
-    }
+    xhook_refresh(0);
+    return nullptr;
 }
 
-// Регистрируем наш Zygisk модуль
-REGISTER_ZYGISK_MODULE(XHookModule)
+// ВОТ ЭТА СТРОКА ЗАСТАВИТ БИБЛИОТЕКУ ЗАПУСТИТЬСЯ СРАЗУ ПОСЛЕ ИНЖЕКТА
+__attribute__((constructor))
+void onLibraryLoaded() {
+    LOG(">>> Library injected via MT Manager/Termux! <<<");
+    pthread_t thread;
+    pthread_create(&thread, nullptr, SetupThread, nullptr);
+}
