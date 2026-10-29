@@ -18,6 +18,9 @@ void DrawESP();
 void DrawMenu();
 void ImGuiRender();
 
+extern float g_LoadProgress;
+extern bool g_IsReady;
+
 // === ОТРИСОВКА ===
 using eglSwapBuffers_t = EGLBoolean(*)(EGLDisplay, EGLSurface);
 static eglSwapBuffers_t origSwap = nullptr;
@@ -29,21 +32,17 @@ void DrawFrame(EGLDisplay dpy, EGLSurface surf) {
     if (dpy == nullptr || surf == nullptr) return;
 
     static bool inited = false;
-    
     EGLint w = 0, h = 0;
     eglQuerySurface(dpy, surf, EGL_WIDTH, &w);
     eglQuerySurface(dpy, surf, EGL_HEIGHT, &h);
     
-    // Если экран еще не создан, пропускаем
     if (w <= 0 || h <= 0) return;
 
     if (!inited) {
-        LOGI("ImGui Init: %dx%d", w, h);
         ImGuiInit(dpy, surf, w, h);
         inited = true;
     }
     
-    // Обновляем размер экрана каждый кадр (для растяга)
     ImGui::GetIO().DisplaySize = ImVec2((float)w, (float)h);
     
     ImGuiBeginFrame();
@@ -69,7 +68,7 @@ static AInputQueue_getEvent_t orig_getEvent = nullptr;
 int32_t hook_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
     int32_t ret = orig_getEvent(queue, outEvent);
     
-    if (ret >= 0 && *outEvent) {
+    if (ret >= 0 && *outEvent && g_IsReady) {
         if (ImGui::GetCurrentContext() != nullptr) {
             int32_t type = AInputEvent_getType(*outEvent);
             if (type == AINPUT_EVENT_TYPE_MOTION) {
@@ -95,23 +94,35 @@ int32_t hook_getEvent(AInputQueue* queue, AInputEvent** outEvent) {
     return ret;
 }
 
-// === УСТАНОВКА ХУКОВ ===
+// === ПРОСТОЕ ОЖИДАНИЕ ===
 void* SetupThread(void*) {
+    LOGI(">>> Library injected! Waiting 10 seconds for game load... <<<");
+    
+    // Просто ждем 10 секунд, чтобы игра успела прогрузиться
+    sleep(10); 
+    g_LoadProgress = 0.5f;
+    sleep(2);
+    
     LOGI(">>> Setting up hooks... <<<");
     
-    // ЖЕСТКИЙ ПЕРЕХВАТ: хукаем ВСЕ библиотеки (.*\\.so$), чтобы поймать игру при старте
+    // Ставим хуки
     xhook_register(".*\\.so$", "eglSwapBuffers", (void*)hookSwap, (void**)&origSwap);
     xhook_register(".*\\.so$", "eglSwapBuffersWithDamageKHR", (void*)hookSwapDamage, (void**)&origSwapDamage);
     xhook_register(".*\\.so$", "AInputQueue_getEvent", (void*)hook_getEvent, (void**)&orig_getEvent);
     
     xhook_refresh(0);
-    LOGI("Hooks installed!");
+    
+    g_LoadProgress = 1.0f;
+    sleep(1); // Даем прогресс-бару дойти до 100%
+    
+    g_IsReady = true; // Включаем меню и ESP!
+    LOGI(">>> Cheat is ready! <<<");
+    
     return nullptr;
 }
 
 __attribute__((constructor))
 void onLibraryLoaded() {
-    LOGI(">>> Library injected! <<<");
     pthread_t thread;
     pthread_create(&thread, nullptr, SetupThread, nullptr);
 }
